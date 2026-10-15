@@ -46,7 +46,15 @@ function updateModeIndicator(gatekeeper=config.gatekeeper!==false) {
 function setPlaying(value) {playing=Boolean(value)&&!$('play-button').disabled;$('play-button').textContent=playing?'Pause':'Play';$('play-button').setAttribute('aria-pressed',String(!playing));worker?.postMessage({type:'play',runId,playing});}
 try {renderer=new DemoRenderer($('scene-canvas'),inspect);} catch(error){showInitializationError(`3D rendering unavailable: ${error.message}`);}
 function updateControls() {for(const [id,key]of controls){const input=$(`${id}-input`);if(!input)continue;input.value=config[key];if($(`${id}-number`))$(`${id}-number`).value=config[key];if($(`${id}-value`))$(`${id}-value`).textContent=config[key]+(CONTROL_UNITS[id]||'');}}
-const failureLabels={features:'Feature minimum breached',budget:'Error budget exceeded',collision:'Collision safety check failed',constraint:'Planning constraint failed'};
+const failureLabels={features:'Minimum shared-feature constraint not satisfied',budget:'Localization-error budget constraint not satisfied',collision:'Collision-safety constraint not satisfied',constraint:'Planning constraint not satisfied'};
+const failureReasons={features:'The minimum shared-feature constraint was not satisfied.',budget:'The localization-error budget constraint was not satisfied.',collision:'The collision-safety constraint was not satisfied.',constraint:'The planning constraint was not satisfied.'};
+function failureReason(snapshot) {
+  const kind=snapshot?.failure?.kind;
+  const summary=failureReasons[kind]||'The planning constraint was not satisfied.';
+  // Preserve the useful obstacle/restriction diagnostic for nonnumeric faults.
+  const detail=typeof snapshot?.fault==='string'?snapshot.fault.replace(/\bbreached\b/gi,'not satisfied'):'';
+  return (kind==='collision'||kind==='constraint'||!kind)&&detail?`${summary} ${detail}`:summary;
+}
 function numeric(value) {const n=Number(value);return Number.isFinite(n)?n:null;}
 function formatFailureMeasurement(failure) {
   if(!failure||typeof failure!=='object')return '';
@@ -79,7 +87,7 @@ function updateFailureAlert(snapshot) {
   }
   const kind=failure?.kind;
   const title=failureLabels[kind]||'Safety stop';
-  const reason=typeof snapshot?.fault==='string'&&snapshot.fault.trim()?snapshot.fault:'The mission stopped after a safety check failed.';
+  const reason=failureReason(snapshot);
   alert.dataset.kind=kind||'unknown';
   $('failure-title').textContent=title;
   $('failure-reason').textContent=reason;
@@ -157,13 +165,13 @@ function updateDashboard(s) {
   const budget=numeric(s.budget)??0,time=numeric(s.time)??0,features=numeric(s.featuresTracked)??0,metrics=s.metrics||{};
   const discovered=s.discoveredLandmarkIds||[],active=s.activeLandmarkIds||[],history=s.history||[];
   if($('budget-chart-value'))$('budget-chart-value').textContent=budget.toFixed(2);if($('features-chart-value'))$('features-chart-value').textContent=s.landmarkVisible?'—':features;
-  $('status-text').textContent=s.status||'Mission ready';$('phase-label').textContent=String(s.phase||'initializing').replaceAll('-',' ');
+  $('status-text').textContent=s.failure||s.phase==='fault'?failureReason(s):s.status||'Mission ready';$('phase-label').textContent=String(s.phase||'initializing').replaceAll('-',' ');
   $('time-value').textContent=`${time.toFixed(1)} s`;$('error-value').textContent=`${budget.toFixed(2)} / ${config.budget} m`;
   $('tracked-value').textContent=s.landmarkVisible?'Landmark lock':`${features} / ${config.minFeatures}`;
   $('nodes-value').textContent=String(metrics.nodes??0);$('landmarks-value').textContent=`${discovered.length} found · ${active.length} usable`;
   chart($('budget-chart'),history,1,config.budget,'#d77a38');chart($('features-chart'),history,2,config.minFeatures,'#328575');
   $('diagnostics').textContent=`${metrics.mapped??0} mapped features · ${metrics.commits??0} commitments · planner ${(numeric(metrics.planningMs)??0).toFixed(1)} ms · ${metrics.renewals??0} renewals`;
-  if(s.events?.length){const e=s.events.at(-1);const el=$('event-text');if(el)el.textContent=`${(numeric(e.time)??0).toFixed(1)} s · ${e.text}`;}
+  if(s.events?.length){const e=s.events.at(-1);const el=$('event-text');if(el)el.textContent=`${(numeric(e.time)??0).toFixed(1)} s · ${s.failure||s.phase==='fault'?failureReason(s):e.text}`;}
   updateModeIndicator(s.gatekeeper===undefined?config.gatekeeper:s.gatekeeper);
   if(s.failure||s.fault||s.phase==='fault')stopForFailure(s);else updateFailureAlert(s);
 }

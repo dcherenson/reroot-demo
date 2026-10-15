@@ -140,7 +140,7 @@ The **Gatekeeper safety** switch restarts the same world and seed in either
 validated planning mode or **Nominal only** mode. The latter executes the same
 shortest Dubins connection directly to the goal orbit without backup, collision,
 feature, or budget validation. Actual-flight monitors remain active in both
-modes. A budget breach is detected at the 0.02 s integration substep; feature
+modes. An unsatisfied budget constraint is detected at the 0.02 s integration substep; feature
 overlap is checked at each 5 Hz camera observation when no localization landmark
 is visible. A landmark lock replaces feature-based odometry, so a low corner
 count during that lock is not a tracking failure. After a failure, playback stays
@@ -217,6 +217,21 @@ Feature algorithms:
 The local detector is a JavaScript implementation, with intensity-centroid
 orientation and a compact descriptor patch appropriate to the sensor resolution.
 
+Terrain is triangulated at runtime from locally bundled USGS 3DEP elevation
+snapshots: Catalina/Mount Lemmon ridges, Ann Arbor campus terrain, and farmland
+west of Ann Arbor. Geography and vertical relief are compressed for this demo.
+The Tucson surface uses a 1 m simulation grid; Farm and Ann Arbor use 2 m grids.
+Rendering, collision and line of sight query the same triangle surface. Roads
+and fields are cut from those triangles and clipped at map boundaries; both
+sensor passes also clip scenery to the world rectangle.
+
+Ground materials use local Poly Haven CC0 photographs. Their contrast fades
+smoothly in authored feature-poor regions, while keeping the surface opaque
+and preserving its average color. These are ordinary world materials seen by
+the actual detector, not synthesized feature measurements. All source images
+load before the first sensor frame. See [elevation provenance](../terrain/README.md)
+and [material credits](../terrain/GROUND-MATERIALS.md).
+
 Trees, grass, bushes, and rocks include locally bundled Quaternius CC0 meshes;
 see [model credits](../models/ASSET-CREDITS.md) for provenance and licenses.
 
@@ -249,13 +264,13 @@ plus 100 alternating world resets with explicit-GC heap and GPU-resource checks.
 The full-tree test measures rendering/sensing throughput, not planner growth
 throughput. Mac Chromium uses Metal explicitly; software WebGL is much slower.
 
-The October 15 checks passed 77 unit tests and 70 browser checks (66 functional,
-4 performance). Farm, Tucson, and Ann Arbor reached their goal orbits after
-47.8, 413.6, and 90.6 simulated seconds respectively and completed 30 simulated
-minutes without a fault. With a 1 m budget, all three remained safe for the
-120-second restrictive check while continuing to loiter. Full-tree rendering
-measured about 60 FPS on the test laptop. A hundred alternating scene resets
-kept retained heap and per-world GPU-resource counts bounded.
+The October 15 terrain revision passed 80 unit checks, 72 functional browser
+checks, and four performance checks. Farm, Tucson, and Ann Arbor reached the
+goal after 67.6, 791.2, and 370.0 simulated seconds respectively and each completed
+30 simulated minutes without a fault. All three 1 m budget scenarios stayed
+safe during the 120-second restrictive check. Full-tree rendering with 5 Hz
+sensing measured 58.5–59.8 FPS. A hundred alternating resets passed retained-heap,
+backing-storage and GPU-resource checks.
 
 Current measurements and runtime hashes are recorded in
 `tests/budget-planning/acceptance-results.json`. Earlier measurements are kept

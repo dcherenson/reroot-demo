@@ -265,7 +265,7 @@ body.budget-demo {
   align-items: center;
 }
 
-.topbar-left { min-width: 0; gap: 14px; }
+.topbar-left { min-width: 0; flex: 1 1 auto; gap: 14px; }
 .topbar-center { gap: 9px; color: var(--ink-muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 .topbar-right { flex: none; flex-direction: column; align-items: flex-end; gap: 2px; }
 
@@ -296,10 +296,9 @@ body.budget-demo {
 }
 
 .paper-link:hover { color: #ffd19f; }
-.mission-title { min-width: 0; }
+.mission-title { min-width: 0; flex: 1 1 auto; }
 .eyebrow { margin: 0 0 2px; color: var(--orange-bright); font-size: 8px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
-.mission-title h1 { margin: 0; color: #f4f7f2; font-size: 15px; font-weight: 680; letter-spacing: -.02em; white-space: nowrap; }
-.mission-title h1 span { color: #9cb4b2; }
+.mission-title h1 { margin: 0; color: #f4f7f2; font-size: clamp(9px, 1.1vw, 15px); font-weight: 680; letter-spacing: -.02em; line-height: 1.14; overflow-wrap: anywhere; }
 .topbar-label { color: var(--ink-dim); font-size: 8px; font-weight: 750; letter-spacing: .16em; }
 .topbar-center strong { color: #edf5ef; font-size: 11px; font-weight: 680; letter-spacing: .04em; text-transform: none; }
 .topbar-context { color: var(--ink-dim); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
@@ -688,8 +687,7 @@ body.budget-demo {
   .world-topbar { min-height: 54px; padding: 8px 12px; }
   .topbar-left { gap: 9px; }
   .topbar-rule, .paper-link, .mission-title .eyebrow { display: none; }
-  .mission-title { max-width: 120px; }
-  .mission-title h1 { overflow: hidden; font-size: 12px; letter-spacing: -.045em; text-overflow: ellipsis; white-space: nowrap; }
+  .mission-title h1 { font-size: clamp(9px, 1.1vw, 12px); letter-spacing: -.045em; }
   .topbar-center { position: static; display: flex; margin-left: auto; padding: 0; background: none; border: 0; font-size: 8px; }
   .topbar-center .topbar-label { display: none; }
   .topbar-center strong { font-size: 9px; max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

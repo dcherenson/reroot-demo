@@ -113,8 +113,8 @@ test('safety failure explains the measured threshold, freezes play, and clears o
 
   await expect(page.locator('#failure-alert')).toBeVisible();
   await expect(page.locator('.failure-mark')).toHaveText('FAIL');
-  await expect(page.locator('#failure-title')).toContainText('Feature minimum');
-  await expect(page.locator('#failure-reason')).toContainText('feature overlap');
+  await expect(page.locator('#failure-title')).toHaveText('Minimum shared-feature constraint not satisfied');
+  await expect(page.locator('#failure-reason')).toHaveText('The minimum shared-feature constraint was not satisfied.');
   await expect(page.locator('#failure-measurement')).toContainText('3 shared features');
   await expect(page.locator('#failure-measurement')).toContainText('minimum 6');
   await expect(page.locator('#play-button')).toBeDisabled();
@@ -135,8 +135,8 @@ test('error-budget failure reports metres and its configured limit', async ({ pa
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.phase === 'fault');
 
   await expect(page.locator('#failure-alert')).toBeVisible();
-  await expect(page.locator('#failure-title')).toContainText('Error budget');
-  await expect(page.locator('#failure-reason')).toContainText('localization error');
+  await expect(page.locator('#failure-title')).toHaveText('Localization-error budget constraint not satisfied');
+  await expect(page.locator('#failure-reason')).toHaveText('The localization-error budget constraint was not satisfied.');
   await expect(page.locator('#failure-measurement')).toContainText('5.40 m');
   await expect(page.locator('#failure-measurement')).toContainText('limit 5.00 m');
   await expect(page.locator('#play-button')).toBeDisabled();

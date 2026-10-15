@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Interactive 3D demonstration of autonomy architectures for safe planning under a localization-error budget.">
-    <title>Autonomy Architectures for Safe Planning | Interactive Demo</title>
+    <title>Autonomy Architectures for Safe Planning in Unknown Environments Under Budget Constraints</title>
     <link rel="stylesheet" href="./assets/budget-planning/demo.css">
   </head>
   <body class="budget-demo">
@@ -26,7 +26,7 @@
           <a class="paper-link" href="https://ieeexplore.ieee.org/abstract/document/11615375" target="_blank" rel="noreferrer" aria-label="Read the paper">Paper</a>
           <div class="mission-title">
             <p class="eyebrow">Autonomous planning under uncertainty</p>
-            <h1 id="demo-title">Safe planning <span>cockpit</span></h1>
+            <h1 id="demo-title">Autonomy Architectures for Safe Planning in Unknown Environments Under Budget Constraints</h1>
           </div>
         </div>
         <div class="topbar-center" aria-live="polite">
@@ -181,7 +181,7 @@
             </details>
             <details class="assumptions">
               <summary>Ann Arbor visual references</summary>
-              <p>Procedural interpretations of the <a href="https://www.robotics.umich.edu/about/facilities/ford-robotics-building/" target="_blank" rel="noreferrer">Ford Robotics Building</a>, <a href="https://mgoblue.com/sports/2017/6/16/facilities-michigan-stadium-html?id=157" target="_blank" rel="noreferrer">Michigan Stadium</a>, and <a href="https://www.uofmhealth.org/our-care/clinical-units/survival-flight" target="_blank" rel="noreferrer">Michigan Medicine's Survival Flight helipad</a>. The river valley and gentle rises draw on Ann Arbor's <a href="https://www.a2gov.org/media/u1qjqduh/nfmasterplan_6-04.pdf" target="_blank" rel="noreferrer">Natural Features Master Plan</a>. Layout and scale are compressed; restrictions are simulated.</p>
+              <p>Procedural interpretations of the <a href="https://www.robotics.umich.edu/about/facilities/ford-robotics-building/" target="_blank" rel="noreferrer">Ford Robotics Building</a>, <a href="https://mgoblue.com/sports/2017/6/16/facilities-michigan-stadium-html?id=157" target="_blank" rel="noreferrer">Michigan Stadium</a>, and <a href="https://www.uofmhealth.org/our-care/clinical-units/survival-flight" target="_blank" rel="noreferrer">Michigan Medicine's Survival Flight helipad</a>. The river valley and gentle rises draw on Ann Arbor's <a href="https://www.a2gov.org/media/u1qjqduh/nfmasterplan_6-04.pdf" target="_blank" rel="noreferrer">Natural Features Master Plan</a>. Terrain polygons use locally bundled USGS elevation samples and Poly Haven ground materials. Layout and scale are compressed; restrictions are simulated.</p>
             </details>
           </div>
         </details>
@@ -191,7 +191,7 @@
         <section class="failure-card" aria-labelledby="failure-title" aria-describedby="failure-reason failure-measurement failure-time">
           <div class="failure-mark" aria-hidden="true">FAIL</div>
           <h2 id="failure-title">Safety stop</h2>
-          <p id="failure-reason" class="failure-reason">The mission stopped after a safety check failed.</p>
+          <p id="failure-reason" class="failure-reason">The mission stopped because a planning constraint was not satisfied.</p>
           <p id="failure-measurement" class="failure-measurement"></p>
           <p id="failure-time" class="failure-time"></p>
           <button id="failure-reset" class="button failure-reset" type="button">Reset mission</button>

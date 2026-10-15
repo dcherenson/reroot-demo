@@ -233,7 +233,7 @@ test('mathematical path and camera overlays never enter the optical sensor', asy
       renderer.cameraFanSides.visible = !renderer.cameraFanSides.visible;
       renderer.cameraFanEdges.visible = !renderer.cameraFanEdges.visible;
       renderer.worldBorder.visible = !renderer.worldBorder.visible;
-      renderer.planningGrid.visible = !renderer.planningGrid.visible;
+      if (renderer.planningGrid) renderer.planningGrid.visible = !renderer.planningGrid.visible;
       const toggled = renderer.captureSensor(simulation.pose, simulation.cameraYaw);
       return {
         baselineRgb: digest(baselineRgb),

@@ -63,3 +63,7 @@ the `/reroot-demo/` project URL. The legacy `budget-planning.html` route redirec
 to the standalone home page.
 
 Third-party model and library licenses are retained alongside their assets.
+Ground polygons use local USGS elevation snapshots, with locally served CC0
+Poly Haven surface textures. Geography and vertical scales are compressed for
+the demo. See [terrain sources](assets/terrain/README.md) and
+[material credits](assets/terrain/GROUND-MATERIALS.md).

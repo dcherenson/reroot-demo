@@ -74,6 +74,17 @@ test('all worlds are seeded, bounded and replayable', () => {
   }
 });
 
+test('Tucson tower has a level foundation shared by its visual base and collision surface', () => {
+  const world = createWorld('tucson');
+  const tower = world.objects.find(object => object.kind === 'tower' && !object.landmarkId);
+  for (let dx = -tower.width / 2; dx <= tower.width / 2; dx += .5) {
+    for (let dy = -tower.depth / 2; dy <= tower.depth / 2; dy += .5) {
+      assert.ok(Math.abs(terrainHeight(world, tower.x + dx, tower.y + dy) - tower.z) < 1e-5);
+    }
+  }
+  assert.equal(worldCollision(world, tower.x, tower.y), true);
+});
+
 test('scenery is clustered around authored edges rather than spread on a grid', () => {
   for (const id of WORLD_IDS) {
     const world = createWorld(id, 1337);
@@ -205,7 +216,8 @@ test('Ann Arbor truth shares a winding Huron River with terrain and scenery', ()
     for (let x = 0; x <= city.width; x += 2) maximumTerrain = Math.max(maximumTerrain, terrainHeight(city, x, y));
   }
   assert.ok(maximumTerrain < city.altitude, 'Ann Arbor hills must stay below the flight layer');
-  assert.ok(terrainHeight(city, city.hills[0].x, city.hills[0].y) > terrainHeight(city, city.hills[0].x, city.hills[0].y - 28));
+  assert.ok(maximumTerrain > 5, 'the measured campus terrain retains gradual relief');
+  assert.equal(city.terrainMesh.heights.length, 161 * 116, 'campus surface storage remains bounded');
 });
 
 test('Ann Arbor authored facilities keep five landmark roots and safe dimensions', () => {

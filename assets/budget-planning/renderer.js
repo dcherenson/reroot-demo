@@ -4,6 +4,8 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { terrainHeight as worldTerrainHeight, watercourseDistance, watercourseSurface, isFeaturePoor } from './worlds.js';
 import { createStadium, createFordRobotics, createMedicalCenter } from './scenery-models.js';
 import { createVegetationModels } from './vegetation-models.js';
+import { drapedRectangleGeometry } from './terrain-geometry.js';
+import { createTerrainMaterial } from './terrain-materials.js';
 import { createLandmarkModel } from './landmark-models.js';
 import { SENSOR, sensorCalibration } from './sensor-camera.js';
 
@@ -146,7 +148,9 @@ export class DemoRenderer {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(DEFAULT_PALETTE.sky);
     this.scene.fog = new THREE.Fog(DEFAULT_PALETTE.sky, 290, 920);
-    this.camera = new THREE.PerspectiveCamera(44, 1, .1, 1800);
+    // The map viewer stays metres from scenery. A 1 m near plane preserves
+    // depth precision across the whole map, including stacked road/field layers.
+    this.camera = new THREE.PerspectiveCamera(44, 1, 1, 1800);
     this.orbitCamera = this.camera;
     this.fpvCamera = new THREE.PerspectiveCamera(44, 1, .05, 1800);
     this.camera.position.set(120, 108, 136);
@@ -377,6 +381,14 @@ export class DemoRenderer {
     this.displayCameraYaw=null;
     this.world = world || { id: 'farm', width: 220, height: 180, palette: DEFAULT_PALETTE, features: [], landmarks: [], zones: [], objects: [], mountains: [] };
     this._replaceWorldGroup();
+    // Use the same finite map in the viewer and both RGB/depth sensor passes.
+    // This also trims roof overhangs, foliage and river banks at the boundary.
+    this.renderer.clippingPlanes = [
+      new THREE.Plane(new THREE.Vector3(1, 0, 0), this.world.width / 2),
+      new THREE.Plane(new THREE.Vector3(-1, 0, 0), this.world.width / 2),
+      new THREE.Plane(new THREE.Vector3(0, 0, 1), this.world.height / 2),
+      new THREE.Plane(new THREE.Vector3(0, 0, -1), this.world.height / 2),
+    ];
     const palette = { ...DEFAULT_PALETTE, ...(this.world.palette || {}) };
     const sky = hexColor(palette.sky, DEFAULT_PALETTE.sky);
     this.scene.background = sky;
@@ -396,10 +408,9 @@ export class DemoRenderer {
   _buildTerrain(palette) {
     const width = positive(this.world.width, 220);
     const height = positive(this.world.height, 180);
-    // The simulation's knowledge raster uses a 2 m cell.  Matching that
-    // resolution keeps the visible surface and the mask on the same grid,
-    // while the authoritative terrain function still supplies every vertex.
-    const geometry = new THREE.PlaneGeometry(width, height, Math.max(1, Math.round(width / 2)), Math.max(1, Math.round(height / 2)));
+    // Match the authoritative terrain grid exactly (1 m for the Catalina
+    // ridges, 2 m elsewhere), including its triangle diagonal.
+    const geometry = new THREE.PlaneGeometry(width, height, this.world.terrainMesh?.columns - 1 || Math.round(width / 2), this.world.terrainMesh?.rows - 1 || Math.round(height / 2));
     const positions = geometry.attributes.position;
     for (let index = 0; index < positions.count; index += 1) {
       const x = positions.getX(index);
@@ -409,64 +420,40 @@ export class DemoRenderer {
       // positive simulation y axis after _mapPosition().
       positions.setZ(index, this._terrainHeight(x + width / 2, y + height / 2));
     }
-    // The height samples above remain authoritative for simulation and LOS.
-    // Only the vertex color field is embellished here: broad color bands,
-    // slope shading, and a low-amplitude biome grain give the fixed terrain a
-    // finished surface without adding synthetic feature points to sensing.
     const colors = new Float32Array(positions.count * 3);
-    for (let index = 0; index < positions.count; index += 1) {
-      const x = positions.getX(index) + width / 2;
-      const y = positions.getY(index) + height / 2;
-      const h = positions.getZ(index);
-      const sample = 1.7;
-      const slopeX = (this._terrainHeight(x + sample, y) - this._terrainHeight(x - sample, y)) / (sample * 2);
-      const slopeY = (this._terrainHeight(x, y + sample) - this._terrainHeight(x, y - sample)) / (sample * 2);
-      const slope = Math.min(1, Math.hypot(slopeX, slopeY) * 2.4);
-      const grain = Math.sin(x * .071 + y * .037) * .5 + Math.sin(x * .019 - y * .083) * .25;
-      const poor = isFeaturePoor(this.world, x, y);
-      let color;
-      if (this.world.id === 'farm') {
-        if (poor) {
-          // Feature-poor field interiors stay calm so the vegetation boundary
-          // remains readable from the air.
-          color = new THREE.Color('#a9aa72').lerp(new THREE.Color('#c3b178'), grain * .08 + .47);
-        } else {
-          const crop = ((Math.floor(x / 48) * 3 + Math.floor(y / 42)) % 4 + 4) % 4;
-          const crops = ['#718c54', '#8fa15c', '#b2a267', '#6d8650'];
-          color = new THREE.Color(crops[crop]).lerp(new THREE.Color('#d0b875'), grain * .12 + .34);
-        }
-      } else if (this.world.id === 'tucson') {
-        const basin = h > 20 ? new THREE.Color('#8d694f') : new THREE.Color('#bd956b');
-        const wash = new THREE.Color('#d0a878');
-        color = basin.lerp(wash, Math.max(0, grain * .16 + .08));
-      } else {
-        const lawn = new THREE.Color('#6f8f68');
-        const woodland = new THREE.Color('#4f7358');
-        const riverDistance = watercourseDistance(this.world, x, y);
-        if (riverDistance < (this.world.river?.width || 0) / 2 + 3) color = new THREE.Color('#9ca879');
-        else if (riverDistance < (this.world.river?.width || 0) / 2 + 9) color = new THREE.Color('#4e7859');
-        else color = lawn.lerp(woodland, poor ? .08 : .34 + Math.max(0, grain) * .12);
+    const detail = new Float32Array(positions.count);
+    for (let index = 0; index < positions.count; index++) {
+      const x = positions.getX(index) + width / 2, y = positions.getY(index) + height / 2;
+      // Broad organic variation instead of square color tiles. The detail mask
+      // fades smoothly into sparse sand/field/lawn interiors in both cameras.
+      const variation = .94 + .04 * Math.sin(x * .021 + y * .012) * Math.cos(y * .019);
+      let weight = .7;
+      for (const region of this.world.featureRegions || []) {
+        if (region.kind !== 'poor') continue;
+        const radius = Math.hypot((x - region.x) / region.rx, (y - region.y) / region.ry);
+        const blend = THREE.MathUtils.smoothstep(radius, .65, 1.18);
+        weight = Math.min(weight, .015 + .685 * blend);
       }
-      // Exposed slopes catch more light in the stylized scene; the small grain
-      // is kept below the threshold that would resemble extra image features.
-      color.multiplyScalar(Math.max(.72, Math.min(1.08, 1.02 - slope * .17 + grain * .025)));
-      colors.set([color.r, color.g, color.b], index * 3);
+      const riverDistance = watercourseDistance(this.world, x, y);
+      const bank = this.world.river ? 1 - THREE.MathUtils.smoothstep(riverDistance, 7, 18) : 0;
+      const altitude = positions.getZ(index);
+      const ridge = this.world.id === 'tucson' ? THREE.MathUtils.smoothstep(altitude, 8, 42) : 0;
+      const tint = new THREE.Color(this.world.id === 'tucson' ? '#e9c7a3' : this.world.id === 'farm' ? '#b2dc92' : '#c5e2a7');
+      tint.multiplyScalar(variation * (1 - bank * .2));
+      if (ridge) { tint.lerp(new THREE.Color('#b3a294'), ridge * .6); weight = Math.max(weight, ridge); }
+      colors.set([tint.r, tint.g, tint.b], index * 3);
+      detail[index] = weight;
     }
-    geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('terrainDetail', new THREE.BufferAttribute(detail, 1));
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
     geometry.rotateX(-Math.PI / 2);
     this.terrainBaseColor = hexColor(palette.ground, DEFAULT_PALETTE.ground);
-    this.terrainMaterial = this._makeMaterial(new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      vertexColors: true,
-      roughness: .97,
-      metalness: 0,
-      flatShading: false,
-      transparent: true,
-      opacity: 1,
-      side: THREE.DoubleSide,
-    }));
+    this.terrainMaterial = createTerrainMaterial(this.world, {
+      owned: this._owned, maxAnisotropy: this.renderer.capabilities.getMaxAnisotropy(),
+      variant: this.world.id === 'farm' ? 'farmGrass' : undefined,
+    }).material;
     this.terrain = this._makeMesh(geometry, this.terrainMaterial);
     this.terrain.name = 'terrain';
     this.sceneryGroup.add(this.terrain);
@@ -487,21 +474,7 @@ export class DemoRenderer {
     this.worldBorder = border;
     this.sceneryGroup.add(border);
 
-    // A subtle low-opacity grid gives the flat planning abstraction a visual
-    // reference without replacing the 3D terrain or physical scene objects.
-    const grid = new THREE.GridHelper(Math.max(width, height), Math.round(Math.max(width, height) / 20), 0x718785, 0x718785);
-    grid.name = 'planning-grid';
-    this.planningGrid = grid;
-    grid.position.y = .17;
-    (Array.isArray(grid.material) ? grid.material : [grid.material]).forEach((material) => {
-      material.transparent = true;
-      material.opacity = .11;
-      material.depthWrite = false;
-    });
-    this._owned.add(grid.geometry);
-    (Array.isArray(grid.material) ? grid.material : [grid.material]).forEach((material) => this._owned.add(material));
-    this.sceneryGroup.add(grid);
-
+    this.planningGrid = null;
   }
 
   _buildKnowledgeFog() {
@@ -522,7 +495,10 @@ export class DemoRenderer {
         if (!material || visited.has(material)) continue;
         visited.add(material);
         const isTerrain = object === this.terrain;
-        material.onBeforeCompile = shader => {
+        const previousCompile = material.onBeforeCompile;
+        const previousCacheKey = material.customProgramCacheKey?.bind(material);
+        material.onBeforeCompile = (shader, renderer) => {
+          previousCompile?.call(material, shader, renderer);
           Object.assign(shader.uniforms, {
             surveyMap: { value: texture }, surveyEnabled: this.knowledgeFog.enabled,
             surveySize: this.knowledgeFog.size, surveyFogColor: this.knowledgeFog.color,
@@ -548,7 +524,7 @@ export class DemoRenderer {
             #include <opaque_fragment>
           `);
         };
-        material.customProgramCacheKey = () => `survey-fog-${isTerrain ? 'terrain' : 'scenery'}`;
+        material.customProgramCacheKey = () => `${previousCacheKey?.() || ''}|survey-fog-${isTerrain ? 'terrain' : 'scenery'}`;
         material.needsUpdate = true;
       }
     });
@@ -614,7 +590,7 @@ export class DemoRenderer {
     if (!visual && (kind.includes('stadium') || kind.includes('bowl'))) visual = this._addStadium(object, palette);
     if (!visual && kind.includes('crowd')) visual = this._addCrowd(object);
     if (!visual && (kind.includes('road') || kind.includes('street'))) visual = this._addRoad(object, palette);
-    if (!visual && (kind.includes('field') || kind.includes('crop') || kind.includes('runway'))) visual = this._addField(object, palette);
+    if (!visual && (kind.includes('field') || kind.includes('crop') || kind.includes('runway') || kind === 'plaza')) visual = this._addField(object, palette);
     if (!visual && (kind.includes('barn') || kind.includes('hangar'))) visual = this._addBarn(object, palette);
     if (!visual && (kind.includes('tree') || kind.includes('forest'))) visual = this._addTree(object, palette);
     if (!visual && (kind.includes('building') || kind.includes('house') || kind.includes('home'))) {
@@ -775,94 +751,24 @@ export class DemoRenderer {
   }
 
   _addField(object = {}, palette) {
-    const width = positive(object.width, 40);
-    const depth = positive(object.depth, 25);
-    const color = hexColor(object.color, 0x9eae78);
-    const material = this._makeMaterial(new THREE.MeshStandardMaterial({ color, roughness: 1, metalness: 0, side: THREE.DoubleSide }));
-    const rotation = finite(object.rotation);
-    const cos = Math.cos(rotation); const sin = Math.sin(rotation);
-    const centerX = finite(object.x); const centerY = finite(object.y);
-    const centerHeight = this._terrainHeight(centerX, centerY);
-    // A broad flat box cuts through the low-amplitude terrain and produces
-    // mottled z-fighting in the sensor.  Subdivide a surface plane and drape
-    // it over the authoritative terrain, leaving a small physical lift.
-    const fieldGeometry = new THREE.PlaneGeometry(width, depth,
-      Math.max(1, Math.ceil(width / 4)), Math.max(1, Math.ceil(depth / 4)));
-    fieldGeometry.rotateX(-Math.PI / 2);
-    const fieldPositions = fieldGeometry.attributes.position;
-    for (let index = 0; index < fieldPositions.count; index += 1) {
-      const localX = fieldPositions.getX(index); const localZ = fieldPositions.getZ(index);
-      const simX = centerX + localX * cos + localZ * sin;
-      const simY = centerY + localX * sin - localZ * cos;
-      const relativeHeight = this._terrainHeight(simX, simY) - centerHeight;
-      fieldPositions.setY(index, relativeHeight + .055);
-    }
-    fieldPositions.needsUpdate = true;
-    fieldGeometry.computeVertexNormals();
-    const field = this._makeMesh(fieldGeometry, material);
-    const base = this._objectBase(object);
-    field.position.set(base.x, base.y, base.z);
-    field.rotation.y = rotation;
+    const material = createTerrainMaterial(this.world, { owned: this._owned, variant: 'farm', maxAnisotropy: this.renderer.capabilities.getMaxAnisotropy() }).material;
+    material.vertexColors = false;
+    material.polygonOffset = true; material.polygonOffsetFactor = 0; material.polygonOffsetUnits = -1;
+    const geometry = drapedRectangleGeometry(this.world, object, (x, y) => this._terrainHeight(x, y));
+    geometry.setAttribute('terrainDetail', new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(.55), 1));
+    const field = this._makeMesh(geometry, material);
+    field.name = 'field-surface';
     this.sceneryGroup.add(field);
-
-    const stripeMaterial = this._makeMaterial(new THREE.MeshBasicMaterial({ color: hexColor(palette.accent, COLORS.committed), transparent: true, opacity: .24 }));
-    const stripeCount = Math.max(3, Math.floor(width / 10));
-    for (let index = 1; index < stripeCount; index += 1) {
-      const localStripeX = -width / 2 + (width * index / stripeCount);
-      const stripeX = centerX + localStripeX * cos;
-      const stripeY = centerY + localStripeX * sin;
-      // Stripes are useful at rich field edges but read as a uniform sensor
-      // checker in authored poor cores.  Keep the physical field surface and
-      // suppress only the mathematical striping where the world says it is a
-      // clearing.
-      if (isFeaturePoor(this.world, stripeX, stripeY)) continue;
-      const stripeGeometry = new THREE.PlaneGeometry(.23, depth * .92, 1, Math.max(1, Math.ceil(depth / 4)));
-      stripeGeometry.rotateX(-Math.PI / 2);
-      const stripePositions = stripeGeometry.attributes.position;
-      for (let vertex = 0; vertex < stripePositions.count; vertex += 1) {
-        const localX = stripePositions.getX(vertex); const localZ = stripePositions.getZ(vertex);
-        const simX = centerX + (localStripeX + localX) * cos + localZ * sin;
-        const simY = centerY + (localStripeX + localX) * sin - localZ * cos;
-        const relativeHeight = this._terrainHeight(simX, simY) - centerHeight;
-        stripePositions.setY(vertex, relativeHeight + .095);
-      }
-      stripePositions.needsUpdate = true;
-      stripeGeometry.computeVertexNormals();
-      const stripe = this._makeMesh(stripeGeometry, stripeMaterial);
-      stripe.position.set(base.x + localStripeX * cos, base.y, base.z - localStripeX * sin);
-      stripe.rotation.y = rotation;
-      this.sceneryGroup.add(stripe);
-    }
     return field;
   }
 
   _addRoad(object = {}, palette) {
-    const width = positive(object.width, 7);
-    const depth = positive(object.depth, 80);
-    const rotation = finite(object.rotation);
-    const segmentCount = Math.max(8, Math.min(48, Math.ceil(depth / 6)));
-    const geometry = new THREE.BoxGeometry(width, .18, depth, 1, 1, segmentCount);
-    const positions = geometry.attributes.position;
-    const centerHeight = this._terrainHeight(finite(object.x), finite(object.y));
-    const cos = Math.cos(rotation); const sin = Math.sin(rotation);
-    for (let index = 0; index < positions.count; index += 1) {
-      const localX = positions.getX(index); const localZ = positions.getZ(index);
-      // Roads use the same local-to-world rotation as _mapPosition: local +z
-      // points toward negative simulation y, and the group turns by +rotation
-      // so world and planner rectangles share the same orientation.
-      const simX = finite(object.x) + localX * cos + localZ * sin;
-      const simY = finite(object.y) + localX * sin - localZ * cos;
-      const h = this._terrainHeight(simX, simY) - centerHeight;
-      positions.setY(index, h + (positions.getY(index) < 0 ? .01 : .16));
-    }
-    positions.needsUpdate = true;
-    geometry.computeVertexNormals();
-    const color = object.color || (String(this.world?.id).includes('tucson') ? 0x96694d : String(this.world?.id).includes('ann-arbor') ? 0x667d73 : 0xb2a06d);
-    const material = this._makeMaterial(new THREE.MeshStandardMaterial({ color: hexColor(color, 0x9f8e68), roughness: 1, metalness: 0 }));
+    const geometry = drapedRectangleGeometry(this.world, object, (x, y) => this._terrainHeight(x, y), { lift: .12 });
+    const color = this.world.id === 'tucson' ? 0x9e7e60 : this.world.id === 'ann-arbor' ? 0x626a68 : 0x947d56;
+    const material = this._makeMaterial(new THREE.MeshStandardMaterial({ color: hexColor(color, 0x9f8e68), roughness: 1, side: THREE.DoubleSide }));
+    material.polygonOffset = true; material.polygonOffsetFactor = 0; material.polygonOffsetUnits = -1;
     const road = this._makeMesh(geometry, material);
-    const base = this._objectBase(object);
-    road.position.set(base.x, base.y, base.z);
-    road.rotation.y = rotation;
+    road.name = 'road-surface';
     this.sceneryGroup.add(road);
     return road;
   }
@@ -2299,6 +2205,14 @@ export class DemoRenderer {
     this.sensorRenderTarget?.dispose();
     this._sensorBottomUpReadBuffer = null;
     this.renderer.dispose();
+    // WebKit keeps the canvas' pixel-store state when a WebGLRenderer is
+    // disposed. Reset the image-upload flags before a later renderer reuses
+    // this canvas; WebGL2 rejects these flags for 3D texture uploads.
+    const gl = this.renderer.getContext?.();
+    if (gl) {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    }
   }
 }
 

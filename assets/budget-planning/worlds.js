@@ -13,6 +13,8 @@
  * each world have a pleasantly different arrangement of small details.
  */
 
+import { sampleTucsonCatalinaHeight, sampleAnnArborCampusHeight, sampleAnnArborWestFarmHeight } from '../terrain/ground-elevation.js';
+
 export const WORLD_WIDTH = 320;
 export const WORLD_HEIGHT = 230;
 export const WORLD_ALTITUDE = 35;
@@ -20,7 +22,6 @@ export const MAX_FEATURES = 1000;
 
 const TAU = Math.PI * 2;
 const EPSILON = 1e-7;
-const MOUNTAIN_COLLISION_BUFFER = 2.25;
 const SOLID_KINDS = new Set(['building', 'stadium', 'tower', 'rock']);
 
 const PALETTES = {
@@ -68,7 +69,7 @@ const FEATURE_REGION_TEMPLATES = {
     { id: 'farm-launch-grove', label: 'Farmstead lane trees', x: 61, y: 90, rx: 23, ry: 9, kind: 'rich' },
     { id: 'farm-lane-hedgerow', label: 'Aviary north lane hedgerow', x: 145, y: 86, rx: 65, ry: 13, kind: 'rich' },
     { id: 'farm-orchards', label: 'Orchard edge', x: 214, y: 75, rx: 42, ry: 20, kind: 'rich' },
-    { id: 'farm-goal-hedgerow', label: 'Harvest co-op hedgerow', x: 274, y: 165, rx: 32, ry: 18, kind: 'rich' },
+    { id: 'farm-goal-hedgerow', label: 'Barn hedgerow', x: 274, y: 165, rx: 32, ry: 18, kind: 'rich' },
   ],
   tucson: [
     { id: 'tucson-west-sand', label: 'West desert sand', x: 44, y: 149, rx: 34, ry: 27, kind: 'poor' },
@@ -83,6 +84,7 @@ const FEATURE_REGION_TEMPLATES = {
     { id: 'tucson-north-rocks', label: 'North rock group', x: 228, y: 39, rx: 48, ry: 19, kind: 'rich' },
     { id: 'tucson-east-saguaro', label: 'East saguaro garden', x: 255, y: 151, rx: 37, ry: 27, kind: 'rich' },
     { id: 'tucson-depot-rocks', label: 'Depot rock group', x: 282, y: 187, rx: 29, ry: 20, kind: 'rich' },
+    { id: 'tucson-west-foothills', label: 'Western foothill talus', x: 139, y: 108, rx: 14, ry: 43, kind: 'rich' },
   ],
   'ann-arbor': [
     { id: 'annarbor-west-lawn', label: 'West campus lawn', x: 45, y: 185, rx: 39, ry: 27, kind: 'poor' },
@@ -120,6 +122,9 @@ const FEATURE_PATCHES = {
     { regionId: 'tucson-launch-rocks', style: 'rock-group', clusters: 4, points: 24, spreadX: 12, spreadY: 7, kinds: ['desert-rock', 'saguaro', 'ocotillo'] },
     { regionId: 'tucson-foothill-rocks', style: 'rock-group', clusters: 5, points: 25, spreadX: 10, spreadY: 6, kinds: ['desert-rock'], allowFoothills: true },
     { regionId: 'tucson-east-wash-rocks', style: 'rock-group', clusters: 4, points: 25, spreadX: 7, spreadY: 9, kinds: ['desert-rock', 'saguaro', 'ocotillo'] },
+    // The measured ridge has a broad western face. Rock and cactus clusters
+    // at its foot provide visible structure without filling the open basins.
+    { regionId: 'tucson-west-foothills', style: 'rock-group', clusters: 7, points: 18, spreadX: 6, spreadY: 9, kinds: ['desert-rock', 'saguaro', 'ocotillo'], allowFoothills: true },
   ],
   'ann-arbor': [
     { regionId: 'annarbor-north-trees', style: 'grove', clusters: 4, points: 21, spreadX: 10, spreadY: 7, kinds: ['tree', 'maple', 'shrub'] },
@@ -238,28 +243,13 @@ function normalizeWorldId(id) {
   return normalized === 'tucson' ? 'tucson' : 'farm';
 }
 
-function baseTerrain(world, x, y) {
-  // The low-amplitude part gives water and shadows something to catch without
-  // turning the flight surface into noisy, unrelated random bumps.
-  const phase = (hashSeed(world.seed) % 3600) / 573;
-  const broad = Math.sin(x * 0.024 + phase) * 0.55 + Math.cos(y * 0.031 - phase * 0.7) * 0.45;
-  const cross = Math.sin((x + y) * 0.017 + phase * 0.31) * 0.25;
-  return 1.8 + broad + cross;
-}
-
-function hillContribution(hill, x, y) {
-  const dx = (x - hill.x) / Math.max(1, Math.abs(hill.rx));
-  const dy = (y - hill.y) / Math.max(1, Math.abs(hill.ry));
-  const radial = dx * dx + dy * dy;
-  if (radial >= 1) return 0;
-  const exponent = Math.max(0.8, Number(hill.exponent) || 1.55);
-  return Math.max(0, Number(hill.height) || 0) * Math.pow(clamp(1 - radial, 0, 1), exponent);
-}
-
 function terrainBaseHeight(world, x, y) {
-  let height = baseTerrain(world, x, y);
-  for (const hill of world.hills || []) height += hillContribution(hill, x, y);
-  return height;
+  const u = clamp(x / world.width, 0, 1), v = 1 - clamp(y / world.height, 0, 1);
+  // Local USGS topography supplies the polygon surface. Vertical scales and
+  // geography are compressed to match the mission's fixed 35 m flight layer.
+  if (world.id === 'ann-arbor') return 1 + sampleAnnArborCampusHeight(u, v, 0) * 6;
+  if (world.id === 'farm') return 1 + sampleAnnArborWestFarmHeight(u, v, 0) * 2.4;
+  return .8 + sampleTucsonCatalinaHeight(u * .22, .7 + v * .25, 0) * 3;
 }
 
 function terrainPadHeight(height, x, y, pad) {
@@ -385,14 +375,16 @@ function mountainContribution(mountain, x, y) {
   const radial = dx * dx + dy * dy;
   if (radial >= 1.45) return 0;
 
-  // A smooth elliptical shoulder followed by a narrower ridge.  The shoulder
-  // is useful for conservative collision checks, while the ridge gives LOS a
-  // substantial, recognisable obstruction.
-  const shoulder = Math.pow(clamp(1 - radial / 1.45, 0, 1), 1.65);
-  const ridge = Math.pow(clamp(1 - radial, 0, 1), 0.72);
-  const localSeed = hashSeed(mountain.seed == null ? 1 : mountain.seed);
-  const ridgeWobble = 0.93 + 0.07 * Math.sin((x * 0.043 + y * 0.027) + (localSeed % 997) * 0.01);
-  return mountain.height * (0.34 * shoulder + 0.66 * ridge) * ridgeWobble;
+  // Real Catalina ridgelines and gullies from a local USGS elevation tile.
+  // Compress the patch to the authored obstacle footprint, with a smooth toe
+  // at the basin boundary. Height, rendered triangles and LOS share this data.
+  const rotation = mountain.rotation || 0;
+  const c = Math.cos(rotation), s = Math.sin(rotation);
+  const u = .5 + (dx * c - dy * s) * .5;
+  const v = .5 - (dx * s + dy * c) * .5;
+  const toe = 1 - smoothstep(.65, 1.35, radial);
+  return mountain.height * sampleTucsonCatalinaHeight(u, v, .06) * toe;
+
 }
 
 function pointInRotatedRect(x, y, object, margin = 0) {
@@ -511,27 +503,43 @@ function addFarmGeometry(world) {
 
   addLandmarkObject(world, { id: 'farm-home', label: 'Red barnhouse', x: 45, y: 65, kind: 'home', home: true },
     { kind: 'building', style: 'landmark-barnhouse', width: 18, depth: 14, height: 12, color: '#b53536' });
-  addLandmarkObject(world, { id: 'farm-windmill', label: 'North windmill', x: 91, y: 67, kind: 'windmill' },
+  addLandmarkObject(world, { id: 'farm-windmill', label: 'Windmill', x: 91, y: 67, kind: 'windmill' },
     { kind: 'tower', style: 'landmark-windmill', width: 9, depth: 9, height: 16 });
   addLandmarkObject(world, { id: 'farm-orchard', label: 'Orchard gate', x: 211, y: 74, kind: 'orchard' },
     { kind: 'building', style: 'landmark-orchard', width: 12, depth: 9, height: 7 });
-  addLandmarkObject(world, { id: 'farm-goal', label: 'Harvest co-op barn', x: 260, y: 165, kind: 'goal', goal: true, renewalRadius: 30 },
+  addLandmarkObject(world, { id: 'farm-goal', label: 'Barn', x: 260, y: 165, kind: 'goal', goal: true, renewalRadius: 30 },
     { kind: 'building', style: 'landmark-barnhouse', width: 20, depth: 14, height: 7, color: '#d2ae59' });
 }
 
 function addTucsonGeometry(world) {
-  // Elliptical mountain masses leave broad gaps on either side of the route.
-  // Their heights are intentionally above the nominal flight altitude.
+  // Three compressed patches of measured Catalina terrain leave broad passes.
+  // Their peaks remain above the nominal flight altitude.
   world.mountains.push(
-    { x: 164, y: 111, rx: 37, ry: 52, height: 62, seed: mix32(world.seed ^ 0x1171) },
-    { x: 300, y: 47, rx: 24, ry: 34, height: 47, seed: mix32(world.seed ^ 0x2a91) },
-    { x: 85, y: 190, rx: 26, ry: 30, height: 39, seed: mix32(world.seed ^ 0x43e7) },
+    { x: 172, y: 111, rx: 33, ry: 52, height: 62, seed: mix32(world.seed ^ 0x1171) },
+    { x: 289, y: 47, rx: 24, ry: 34, height: 47, rotation: .7, seed: mix32(world.seed ^ 0x2a91) },
+    { x: 85, y: 190, rx: 26, ry: 30, height: 43, rotation: -1.1, seed: mix32(world.seed ^ 0x43e7) },
   );
   world.zones.push(
     { id: 'tucson-airport', label: 'Airport approach', kind: 'rect', x: 58, y: 179, width: 30, height: 46, angle: 0.08, known: true },
     { id: 'tucson-observatory', label: 'Observatory', kind: 'circle', x: 300, y: 110, radius: 17, known: true },
     { id: 'tucson-wash', label: 'Wash reserve', kind: 'rect', x: 210, y: 210, width: 22, height: 30, angle: -0.32, known: true },
   );
+
+  // The tower footprint crosses a steep DEM flank. Keep the authored tower
+  // and its obstacle role at the same coordinates, but give its 6 x 6 base a
+  // bounded foundation at the local source elevation before the terrain grid
+  // is baked. Renderer, collision, and LOS then see one stable surface.
+  const towerFoundationElevation = terrainHeight(world, 274, 49);
+  world.terrainPads.push({
+    id: 'tucson-tower-foundation',
+    x: 274,
+    y: 49,
+    width: 8,
+    depth: 8,
+    innerRadiusSquared: 1.25,
+    outerRadiusSquared: 2,
+    elevation: towerFoundationElevation,
+  });
 
   addRoad(world, 154, 112, 7, 295, 0.46, '#9e6b50');
   addRoad(world, 82, 49, 7, 150, 0.05, '#9e6b50');
@@ -542,21 +550,21 @@ function addTucsonGeometry(world) {
   addObject(world, { kind: 'plaza', x: 78, y: 48, width: 23, depth: 19, height: 0.15, color: '#d0a06e' });
   addObject(world, { kind: 'rock', x: 204, y: 40, width: 8, depth: 7, height: 3, color: '#8f6854' });
 
-  addLandmarkObject(world, { id: 'tucson-home', label: 'Old Sentinel saguaro', x: 45, y: 65, kind: 'home', home: true },
+  addLandmarkObject(world, { id: 'tucson-home', label: 'Saguaro', x: 45, y: 65, kind: 'home', home: true },
     { kind: 'tower', style: 'landmark-saguaro', width: 10, depth: 8, height: 16 });
-  addLandmarkObject(world, { id: 'tucson-pass', label: 'Split Rock pass', x: 92, y: 61, kind: 'pass' },
+  addLandmarkObject(world, { id: 'tucson-pass', label: 'Rock', x: 92, y: 61, kind: 'pass' },
     { kind: 'rock', style: 'landmark-rock-spire', width: 9, depth: 8, height: 10 });
   // A marked overlook on the traversable side of the central ridge gives
   // the northern pass its own online localization site.
   addObject(world, { kind: 'plaza', x: 181, y: 43, width: 7, depth: 6, height: 0.15, color: '#d0a06e' });
-  addLandmarkObject(world, { id: 'tucson-overlook', label: 'Ridge trail lookout', x: 181, y: 43, kind: 'overlook' },
+  addLandmarkObject(world, { id: 'tucson-overlook', label: 'Trailhead', x: 181, y: 43, kind: 'overlook' },
     { kind: 'tower', style: 'landmark-lookout', width: 8, depth: 8, height: 7 });
   addLandmarkObject(world, { id: 'tucson-wash-crossing', label: 'Wash footbridge', x: 244, y: 108, kind: 'crossing' },
     { kind: 'building', style: 'landmark-bridge', width: 12, depth: 8, height: 4 });
   addObject(world, { kind: 'plaza', x: 214, y: 146, width: 7, depth: 6, height: 0.15, color: '#d0a06e' });
   addLandmarkObject(world, { id: 'tucson-garden', label: 'Flowering saguaro', x: 214, y: 146, kind: 'trailhead' },
     { kind: 'tower', style: 'landmark-saguaro', width: 8, depth: 7, height: 12, color: '#5b9363' });
-  addLandmarkObject(world, { id: 'tucson-goal', label: 'Desert depot', x: 260, y: 165, kind: 'goal', goal: true, renewalRadius: 30 },
+  addLandmarkObject(world, { id: 'tucson-goal', label: 'Shelter', x: 260, y: 165, kind: 'goal', goal: true, renewalRadius: 30 },
     { kind: 'building', style: 'landmark-depot', width: 14, depth: 10, height: 7 });
 }
 
@@ -596,20 +604,7 @@ function buildAnnArborRiver(seed) {
   };
 }
 
-function buildAnnArborHills() {
-  // These are broad, low ellipsoids rather than mountains.  They model the
-  // river bluffs and campus rises described by the city's natural-features
-  // plan while keeping every flight-layer surface below WORLD_ALTITUDE.
-  return [
-    { id: 'north-campus-rise', label: 'North Campus rise', x: 84, y: 48, rx: 108, ry: 43, height: 5.2, exponent: 1.55 },
-    { id: 'west-river-bluff', label: 'West Huron bluff', x: 43, y: 120, rx: 70, ry: 61, height: 3.8, exponent: 1.65 },
-    { id: 'central-campus-rise', label: 'Central campus rise', x: 221, y: 89, rx: 93, ry: 62, height: 4.4, exponent: 1.6 },
-    { id: 'south-campus-rise', label: 'South Campus rise', x: 261, y: 184, rx: 76, ry: 47, height: 3.7, exponent: 1.55 },
-  ];
-}
-
 function addAnnArborGeometry(world) {
-  world.hills.push(...buildAnnArborHills());
   const river = buildAnnArborRiver(world.seed);
   world.watercourses.push(river);
   world.river = river;
@@ -853,6 +848,21 @@ function generateFeatures(world) {
   const rng = mulberry32(mix32(world.seed ^ hashString(world.id)));
   for (const patch of FEATURE_PATCHES[world.id] || []) generatePatch(world, rng, patch);
   generateRichEdgeBackground(world, rng);
+  if (world.id === 'farm') {
+    // A short field-boundary windbreak bridges the orchard and southern lane.
+    // The surrounding field interiors remain empty; these are rendered objects,
+    // never injected image detections or planner feature observations.
+    for (const [x, y, kind, size] of [[182, 145, 'tree', 2.6], [192, 148, 'tree', 2.4], [202, 145, 'rock', 1.5]]) {
+      addFeature(world, x, y, kind, world.features.length, size);
+    }
+  }
+  if (world.id === 'ann-arbor') {
+    // A few bank-side trees frame the south campus lawn without populating
+    // its deliberately sparse interior or the river itself.
+    for (const [x, y, kind, size] of [[143, 174, 'tree', 2.8], [153, 176, 'maple', 2.6], [163, 174, 'tree', 2.5]]) {
+      addFeature(world, x, y, kind, world.features.length, size);
+    }
+  }
 }
 
 /**
@@ -889,16 +899,40 @@ export function createWorld(id = 'farm', seed = 1337) {
   if (normalizedId === 'farm') addFarmGeometry(world);
   else if (normalizedId === 'tucson') addTucsonGeometry(world);
   else addAnnArborGeometry(world);
+  // Construct one bounded triangle surface at runtime. Planning and rendering
+  // sample the same vertices/diagonal, including the compressed DEM ridges.
+  const spacing = normalizedId === 'tucson' ? 1 : 2;
+  const columns = Math.round(world.width / spacing) + 1;
+  const rows = Math.round(world.height / spacing) + 1;
+  const heights = new Float32Array(columns * rows);
+  for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+    heights[row * columns + column] = terrainHeight(world, column * spacing, row * spacing);
+  }
+  world.terrainMesh = { spacing, columns, rows, heights };
+  for (const object of world.objects) object.z = terrainHeight(world, object.x, object.y);
+  for (const landmark of world.landmarks) landmark.z = surfaceHeight(world, landmark.x, landmark.y) + .12;
   generateFeatures(world);
   return world;
 }
 
 /**
- * Continuous, deterministic terrain.  Mountains are smooth elliptical ridges
- * rather than a collection of per-point random offsets.
+ * Continuous triangle surface shared by terrain rendering, collision and LOS.
+ * Before the grid exists, this evaluates the source surface used to build it.
  */
 export function terrainHeight(world, x, y) {
   if (!world || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
+  const grid = world.terrainMesh;
+  if (grid) {
+    const gx = clamp(x / grid.spacing, 0, grid.columns - 1);
+    const gy = clamp(y / grid.spacing, 0, grid.rows - 1);
+    const ix = Math.min(grid.columns - 2, Math.floor(gx));
+    const iy = Math.min(grid.rows - 2, Math.floor(gy));
+    const fx = gx - ix, fy = gy - iy, offset = iy * grid.columns + ix;
+    const h00 = grid.heights[offset], h10 = grid.heights[offset + 1];
+    const h01 = grid.heights[offset + grid.columns], h11 = grid.heights[offset + grid.columns + 1];
+    return fy <= fx ? h00 * (1 - fx) + h10 * (fx - fy) + h11 * fy
+      : h00 * (1 - fy) + h01 * (fy - fx) + h11 * fx;
+  }
   const base = terrainBaseHeight(world, x, y);
   let height = base;
   for (const mountain of world.mountains || []) height = Math.max(height, base + mountainContribution(mountain, x, y));
@@ -963,9 +997,7 @@ export function worldCollision(world, x, y, clearance = 0) {
   // buildings remain LOS occluders, but do not turn every safe corridor into a
   // forbidden cell: only geometry that reaches the flight altitude matters.
   const flightSurface = Number.isFinite(world.altitude) ? world.altitude - margin : WORLD_ALTITUDE - margin;
-  for (const mountain of world.mountains || []) {
-    if (terrainHeight(world, x, y) >= flightSurface && mountainContains(mountain, x, y, MOUNTAIN_COLLISION_BUFFER + margin)) return true;
-  }
+  if (terrainHeight(world, x, y) >= flightSurface) return true;
   for (const object of world.objects || []) {
     if (pointInSolidObject(x, y, object, margin) && Math.max(terrainHeight(world, x, y), Number(object.z) || 0) + (Number(object.height) || 0) >= flightSurface) return true;
   }

@@ -25,6 +25,9 @@ test('stadium restriction and landmark stay unknown until actual sensing',()=>{
  assert.ok(k.version>version);
  assert.equal(k.safe(155,105),false);
  assert.equal(k.certifyOrbit(w.landmarks.find(l=>l.id==='annarbor-stadium')),false,'recognition alone is not a safe orbit');
+ // The stadium lawn can be feature-poor despite semantic recognition. Survey
+ // the authored campus grove to test marker persistence independently.
+ k.sense([85,105,-Math.PI/2],-Math.PI/2);
  const n=k.mapCount; assert.ok(n>0);
  k.sense([110,105,Math.PI],Math.PI);assert.ok(k.mapCount>=n,'mapped markers persist outside the FOV');
 });
