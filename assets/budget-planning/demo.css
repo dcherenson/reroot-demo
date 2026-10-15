@@ -21,6 +21,7 @@
 }
 
 * { box-sizing: border-box; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 html {
   min-width: 320px;
@@ -301,7 +302,6 @@ body.budget-demo {
 .mission-title h1 { margin: 0; color: #f4f7f2; font-size: clamp(9px, 1.1vw, 15px); font-weight: 680; letter-spacing: -.02em; line-height: 1.14; overflow-wrap: anywhere; }
 .topbar-label { color: var(--ink-dim); font-size: 8px; font-weight: 750; letter-spacing: .16em; }
 .topbar-center strong { color: #edf5ef; font-size: 11px; font-weight: 680; letter-spacing: .04em; text-transform: none; }
-.topbar-context { color: var(--ink-dim); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 
 .scene-state {
   display: inline-flex;
@@ -564,6 +564,19 @@ body.budget-demo {
 .assumptions p { margin: 8px 0 0; line-height: 1.48; }
 .assumptions a { color: var(--cyan); }
 
+.simulation-rate-panel {
+  position: absolute;
+  z-index: 12;
+  right: var(--sensor-gutter);
+  bottom: 15px;
+  width: var(--sensor-inset-width);
+  height: 50px;
+  margin: 0;
+  padding: 7px 11px;
+}
+.simulation-rate-panel .range-head { grid-template-columns: minmax(0, 1fr) auto; }
+.simulation-rate-panel input[type="range"] { margin-top: 2px; }
+
 .sensor-inset {
   position: absolute;
   z-index: 12;
@@ -655,7 +668,6 @@ body.budget-demo {
 @media (max-width: 900px) {
   .cockpit { --rail-gutter: 12px; --left-rail-width: auto; --sensor-inset-width: 180px; --sensor-gutter: 12px; --sensor-panel-height: 206px; }
   .world-topbar { min-height: 59px; padding: 10px 14px; }
-  .topbar-context { display: none; }
   .topbar-right { margin-right: 0; }
   .left-rail, .right-rail { width: auto; left: 12px; right: 12px; }
   .left-rail { top: 73px; }
@@ -668,7 +680,8 @@ body.budget-demo {
   .view-panel { max-height: 23dvh; }
   .view-panel .panel-body { max-height: calc(23dvh - 44px); padding-top: 12px; padding-bottom: 12px; }
   .view-panel .assumptions { display: none; }
-  .sensor-inset { right: 12px; bottom: 10px; width: min(180px, calc(100vw - 24px)); }
+  .sensor-inset { right: 12px; bottom: 61px; width: min(180px, calc(100vw - 24px)); }
+  .simulation-rate-panel { bottom: 8px; height: 43px; padding: 4px 8px; }
   .sensor-heading { min-height: 24px; padding: 5px 8px; font-size: 8px; }
   .sensor-status { min-height: 21px; padding: 4px 8px; font-size: 8px; }
   .sensor-legend { gap: 7px; padding-right: 6px; padding-left: 6px; font-size: 7px; }

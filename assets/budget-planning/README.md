@@ -113,6 +113,11 @@ other no-fly zones are scenario restrictions, not an airspace map.
   ACK sequence prevents sensing or planning from falling behind. RGB and depth
   readback buffers are also recycled. A slow planning tick slows wall-clock playback;
   it never advances the UAV past unfinished validation.
+  The right-side Simulation rate slider changes the target wall-clock cadence
+  from 200 ms (1×) to 20 ms (10×), without changing the 0.2 s simulated step,
+  0.02 s dynamics substeps, or sensing/planning frequencies in simulated time.
+  Rate changes apply live and preserve pause state. Overruns start a fresh cycle
+  after validation and acknowledgment; they never queue catch-up steps.
 - `renderer.js` / `app.js`: view-only interaction, local Three.js scene, controls,
   inspection, and charts.
 - `scenery-models.js`: procedural stadium, Ford Robotics Building, and Michigan
@@ -272,10 +277,18 @@ safe during the 120-second restrictive check. Full-tree rendering with 5 Hz
 sensing measured 58.5–59.8 FPS. A hundred alternating resets passed retained-heap,
 backing-storage and GPU-resource checks.
 
-Current measurements and runtime hashes are recorded in
+Those terrain measurements and runtime hashes are recorded in
 `tests/budget-planning/acceptance-results.json`. Earlier measurements are kept
 in dated JSON archives. The main agent reviews the code and actual results
 before accepting each update.
+
+The subsequent simulation-rate update passed 88 unit checks and 30 targeted
+browser checks across Chromium, Firefox, and WebKit, plus the static build.
+These cover live acceleration, fixed-step scheduling, sensor/ACK backpressure,
+pause/resume, restart persistence, defaults, responsive layout, and deployment
+paths. The main agent reviewed the worker diff and desktop/mobile screenshots.
+The terrain revision's long mission and memory runs were not repeated for this
+pacing/UI-only change; physics, planning, and sensing modules are unchanged.
 
 These scenario checks do not prove feasibility or safety for every setting.
 Future descriptor availability is a geometric prediction; actual image overlap

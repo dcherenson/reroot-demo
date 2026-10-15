@@ -33,6 +33,11 @@ budget, shared-feature minimum, speed, turn radius, camera FOV, range, and tilt.
 The gatekeeper switch compares validated commitments with nominal-only flight.
 Executed constraint violations stop playback with a red failure explanation.
 
+The **Simulation rate** slider below the camera inset adjusts playback from 1×
+to 10× without restarting. It preserves the physics, sensing, and planning steps;
+the achieved rate is limited by processing speed. The rate persists across
+mission restarts and world changes; Restore defaults returns it to 1×.
+
 Keyboard: Space play/pause, R restart, T top-down, F first person, V reset view.
 
 ## Checks

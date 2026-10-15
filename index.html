@@ -35,7 +35,6 @@
         </div>
         <div class="topbar-right">
           <div class="scene-state"><span class="state-dot" aria-hidden="true"></span><span id="phase-label">Initialising</span></div>
-          <span class="topbar-context">Interactive research demo</span>
         </div>
       </header>
 
@@ -218,6 +217,12 @@
           <span><i class="sensor-swatch sensor-new" aria-hidden="true"></i>New corners</span>
           <span><i class="sensor-swatch sensor-match" aria-hidden="true"></i>Actual matched corners</span>
         </div>
+      </aside>
+
+      <aside class="cockpit-panel simulation-rate-panel range-field" aria-label="Simulation playback">
+        <div class="range-head"><label for="simulation-rate-input">Simulation rate</label><output for="simulation-rate-input" id="simulation-rate-value">1×</output></div>
+        <input id="simulation-rate-input" type="range" min="1" max="10" step="1" value="1" aria-describedby="simulation-rate-help" aria-valuetext="1 times normal speed" title="Simulation rate: 1×–10×">
+        <span id="simulation-rate-help" class="sr-only">1× to 10× playback, as processing allows. Applies immediately without restarting or changing vehicle dynamics.</span>
       </aside>
 
       <details class="telemetry-drawer">

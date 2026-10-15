@@ -3,7 +3,7 @@ import { createWorld } from './worlds.js';
 import { DEFAULTS } from './simulation.js';
 const $=id=>document.getElementById(id);
 const DEFAULT_CONFIG={...DEFAULTS,gatekeeper:DEFAULTS.gatekeeper!==false};
-let worker=null,runId=0,playing=!document.hidden,visiblePlaying=true,config={...DEFAULT_CONFIG},worldId='farm',renderer,lastSnapshot=null,pageSuspended=false;
+let worker=null,runId=0,playing=!document.hidden,visiblePlaying=true,config={...DEFAULT_CONFIG},worldId='farm',renderer,lastSnapshot=null,pageSuspended=false,simulationRate=1;
 const controls=[['budget','budget'],['features','minFeatures'],['speed','speed'],['radius','radius'],['fov','horizontalFov'],['range','sensingRange'],['pitch','downwardPitch']];
 const CONTROL_UNITS={budget:' m',speed:' m/s',radius:' m',fov:'°',range:' m',pitch:'°'};
 const seed=1337;
@@ -44,6 +44,14 @@ function updateModeIndicator(gatekeeper=config.gatekeeper!==false) {
   if($('control-mode-description'))$('control-mode-description').textContent=enabled?'Nominal progress is checked before commitment.':'The nominal route is followed without gatekeeper checks.';
 }
 function setPlaying(value) {playing=Boolean(value)&&!$('play-button').disabled;$('play-button').textContent=playing?'Pause':'Play';$('play-button').setAttribute('aria-pressed',String(!playing));worker?.postMessage({type:'play',runId,playing});}
+function setSimulationRate(value) {
+  const rate=Number(value);
+  simulationRate=Number.isFinite(rate)?Math.max(1,Math.min(10,rate)):1;
+  $('simulation-rate-input').value=simulationRate;
+  $('simulation-rate-input').setAttribute('aria-valuetext',`${simulationRate} times normal speed`);
+  $('simulation-rate-value').textContent=`${simulationRate}×`;
+  worker?.postMessage({type:'simulation-rate',runId,simulationRate});
+}
 try {renderer=new DemoRenderer($('scene-canvas'),inspect);} catch(error){showInitializationError(`3D rendering unavailable: ${error.message}`);}
 function updateControls() {for(const [id,key]of controls){const input=$(`${id}-input`);if(!input)continue;input.value=config[key];if($(`${id}-number`))$(`${id}-number`).value=config[key];if($(`${id}-value`))$(`${id}-value`).textContent=config[key]+(CONTROL_UNITS[id]||'');}}
 const failureLabels={features:'Minimum shared-feature constraint not satisfied',budget:'Localization-error budget constraint not satisfied',collision:'Collision-safety constraint not satisfied',constraint:'Planning constraint not satisfied'};
@@ -134,7 +142,7 @@ function restart() {
     if(s.failure||s.fault||s.phase==='fault')stopForFailure(s);
   };
   activeWorker.onerror=e=>{if(worker!==activeWorker||runId!==activeRunId)return;showInitializationError(e.message||'Simulation worker failed.');};
-  activeWorker.postMessage({type:'init',runId:activeRunId,worldId,seed,config,playing});
+  activeWorker.postMessage({type:'init',runId:activeRunId,worldId,seed,config,playing,simulationRate});
 }
 function drawSensor(s) {
   if(sensorImage)sensorContext.putImageData(sensorImage,0,0);
@@ -186,8 +194,9 @@ for(const [id,key]of controls) {
   if(number){number.addEventListener('change',()=>apply(number));number.addEventListener('keydown',event=>{if(event.key==='Enter'){apply(number);number.blur();}});}
 }
 $('world-select').addEventListener('change',e=>{worldId=e.target.value;restart();});
+$('simulation-rate-input').addEventListener('input',event=>setSimulationRate(event.target.value));
 $('play-button').addEventListener('click',()=>setPlaying(!playing));$('reset-button').addEventListener('click',restart);
-$('defaults-button').addEventListener('click',()=>{config={...DEFAULT_CONFIG};restart();});
+$('defaults-button').addEventListener('click',()=>{config={...DEFAULT_CONFIG};setSimulationRate(1);restart();});
 $('gatekeeper-toggle').addEventListener('change',e=>{config.gatekeeper=e.target.checked;restart();});
 $('failure-reset').addEventListener('click',restart);$('initialization-reset').addEventListener('click',restart);
 $('top-button').addEventListener('click',()=>setView('top'));$('fpv-button').addEventListener('click',()=>setView('fpv'));$('orbit-button').addEventListener('click',()=>setView('orbit'));$('view-button').addEventListener('click',()=>{setView('orbit');renderer.resetView();});
@@ -212,5 +221,5 @@ window.addEventListener('keydown',event=>{
 });
 window.addEventListener('pagehide',event=>{if(event.persisted){pageSuspended=true;if(!document.hidden)visiblePlaying=playing;setPlaying(false);return;}worker?.terminate();worker=null;pageSuspended=false;renderer?.dispose();});
 window.addEventListener('pageshow',event=>{if(!event.persisted||!pageSuspended)return;pageSuspended=false;if(!document.hidden&&visiblePlaying)setPlaying(true);});
-window.__budgetDemo={getState:()=>lastSnapshot,getConfig:()=>({...config}),getMode:()=>config.gatekeeper?'gatekeeper':'nominal',getDiagnostics:()=>({...renderer?.getDiagnostics?.(),viewMode}),getLifecycle:()=>({runId,playing,pageSuspended,workerActive:Boolean(worker)}),setView,reset:restart,setWorld:id=>{worldId=id;$('world-select').value=id;restart();},setConfig:values=>{config={...config,...values};config.gatekeeper=config.gatekeeper!==false;restart();}};
+window.__budgetDemo={getState:()=>lastSnapshot,getConfig:()=>({...config}),getMode:()=>config.gatekeeper?'gatekeeper':'nominal',getDiagnostics:()=>({...renderer?.getDiagnostics?.(),viewMode}),getLifecycle:()=>({runId,playing,pageSuspended,workerActive:Boolean(worker),simulationRate}),setView,reset:restart,setWorld:id=>{worldId=id;$('world-select').value=id;restart();},setConfig:values=>{config={...config,...values};config.gatekeeper=config.gatekeeper!==false;restart();}};
 updateControls();updateModeIndicator(config.gatekeeper);restart();
