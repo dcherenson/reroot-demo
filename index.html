@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Interactive 3D demonstration of autonomy architectures for safe planning under a localization-error budget.">
+    <title>Autonomy Architectures for Safe Planning | Interactive Demo</title>
+    <link rel="stylesheet" href="./assets/budget-planning/demo.css">
+  </head>
+  <body class="budget-demo">
+    <main class="cockpit" aria-labelledby="demo-title">
+      <section class="world-stage" aria-label="Interactive planning world">
+        <canvas id="scene-canvas" tabindex="0" aria-label="Interactive three dimensional mission scene. Use the mouse to orbit and click markers to inspect them. Press Space to play or pause, R to restart, T for a top-down view, V to reset the camera, and F for first person."></canvas>
+        <div class="world-atmosphere" aria-hidden="true"></div>
+        <div id="loading-overlay" class="loading-overlay" role="status" aria-live="polite">
+          <div class="loader-ring" aria-hidden="true"></div>
+          <span>Building terrain and sensors…</span>
+        </div>
+        <div class="scene-hint">Drag to orbit · scroll to zoom · click a marker to inspect</div>
+      </section>
+
+      <header class="world-topbar" aria-label="Mission header">
+        <div class="topbar-left">
+          <a class="back-link" href="https://dcherenson.github.io/publications.html" aria-label="Back to publications"><span aria-hidden="true">←</span><span>Publications</span></a>
+          <span class="topbar-rule" aria-hidden="true"></span>
+          <a class="paper-link" href="https://ieeexplore.ieee.org/abstract/document/11615375" target="_blank" rel="noreferrer" aria-label="Read the paper">Paper</a>
+          <div class="mission-title">
+            <p class="eyebrow">Autonomous planning under uncertainty</p>
+            <h1 id="demo-title">Safe planning <span>cockpit</span></h1>
+          </div>
+        </div>
+        <div class="topbar-center" aria-live="polite">
+          <span class="topbar-label">WORLD</span>
+          <strong id="scene-world-label">Farm</strong>
+        </div>
+        <div class="topbar-right">
+          <div class="scene-state"><span class="state-dot" aria-hidden="true"></span><span id="phase-label">Initialising</span></div>
+          <span class="topbar-context">Interactive research demo</span>
+        </div>
+      </header>
+
+      <aside class="left-rail" aria-label="Mission tuning">
+        <details class="cockpit-panel settings-panel tuning-panel" open>
+          <summary><span class="summary-icon" aria-hidden="true">≋</span><span>Mission tuning</span><span class="panel-live">LIVE</span></summary>
+          <div class="panel-body">
+            <div class="panel-kicker">Planning inputs</div>
+            <label class="field-label" for="world-select">Environment</label>
+            <select id="world-select" class="select-input">
+              <option value="farm">Farm</option>
+              <option value="tucson">Tucson</option>
+              <option value="ann-arbor">Ann Arbor</option>
+            </select>
+
+            <label class="toggle-row gatekeeper-toggle-row" for="gatekeeper-toggle">
+              <span><strong>Gatekeeper safety</strong><small>Validate nominal progress before it is committed</small></span>
+              <input id="gatekeeper-toggle" type="checkbox" role="switch" checked aria-describedby="gatekeeper-help">
+              <span class="toggle-track" aria-hidden="true"><span></span></span>
+            </label>
+            <p id="gatekeeper-help" class="field-help gatekeeper-help">Changing this mode restarts the mission with the same world, seed, and tuning.</p>
+            <div id="control-mode" class="mode-indicator" data-mode="gatekeeper" role="status" aria-live="polite">
+              <span class="mode-indicator-label">Gatekeeper active</span>
+              <span id="control-mode-description">Nominal progress is checked before commitment.</span>
+            </div>
+
+
+            <div class="range-field">
+              <div class="range-head"><label for="budget-input">Localization error budget</label><output for="budget-input" id="budget-value">5.0</output><input id="budget-number" class="number-input" type="number" min="1" max="10" step="0.5" value="5" aria-label="Localization error budget in metres"></div>
+              <input id="budget-input" type="range" min="1" max="10" step="0.5" value="5" aria-describedby="budget-help">
+              <div class="range-scale"><span>1</span><span>10 m</span></div>
+              <p id="budget-help" class="field-help">Maximum tolerated localization error before a renewal.</p>
+            </div>
+
+            <div class="range-field">
+              <div class="range-head"><label for="features-input">Shared feature minimum</label><output for="features-input" id="features-value">6</output><input id="features-number" class="number-input" type="number" min="1" max="20" step="1" value="6" aria-label="Minimum shared feature count"></div>
+              <input id="features-input" type="range" min="1" max="20" step="1" value="6" aria-describedby="features-help">
+              <div class="range-scale"><span>1</span><span>20</span></div>
+              <p id="features-help" class="field-help">Minimum matched corners between frames when no landmark is visible.</p>
+            </div>
+
+            <div class="range-field">
+              <div class="range-head"><label for="speed-input">Vehicle speed</label><output for="speed-input" id="speed-value">10</output><input id="speed-number" class="number-input" type="number" min="5" max="20" step="1" value="10" aria-label="Vehicle speed in metres per second"></div>
+              <input id="speed-input" type="range" min="5" max="20" step="1" value="10" aria-describedby="speed-help">
+              <div class="range-scale"><span>5</span><span>20 m/s</span></div>
+              <p id="speed-help" class="field-help">Cruise speed used by the nominal model.</p>
+            </div>
+
+            <div class="range-field">
+              <div class="range-head"><label for="radius-input">Turn radius</label><output for="radius-input" id="radius-value">10</output><input id="radius-number" class="number-input" type="number" min="5" max="30" step="1" value="10" aria-label="Minimum turn radius in metres"></div>
+              <input id="radius-input" type="range" min="5" max="30" step="1" value="10" aria-describedby="radius-help">
+              <div class="range-scale"><span>5</span><span>30 m</span></div>
+              <p id="radius-help" class="field-help">Minimum curvature radius for safe flight.</p>
+            </div>
+
+            <div class="panel-divider" aria-hidden="true"></div>
+            <div class="panel-kicker">Camera sensing</div>
+            <div class="range-field">
+              <div class="range-head"><label for="fov-input">Horizontal FOV</label><output for="fov-input" id="fov-value">90°</output><input id="fov-number" class="number-input" type="number" min="60" max="120" step="5" value="90" aria-label="Horizontal camera field of view in degrees"></div>
+              <input id="fov-input" type="range" min="60" max="120" step="5" value="90" aria-describedby="fov-help">
+              <div class="range-scale"><span>60°</span><span>120°</span></div>
+              <p id="fov-help" class="field-help">Horizontal field of view used by the onboard sensor.</p>
+            </div>
+
+            <div class="range-field">
+              <div class="range-head"><label for="range-input">Sensing range</label><output for="range-input" id="range-value">75 m</output><input id="range-number" class="number-input" type="number" min="40" max="100" step="5" value="75" aria-label="Camera sensing range in metres"></div>
+              <input id="range-input" type="range" min="40" max="100" step="5" value="75" aria-describedby="range-help">
+              <div class="range-scale"><span>40 m</span><span>100 m</span></div>
+              <p id="range-help" class="field-help">Maximum distance for processed camera features.</p>
+            </div>
+
+            <div class="range-field">
+              <div class="range-head"><label for="pitch-input">Camera pitch</label><output for="pitch-input" id="pitch-value">55°</output><input id="pitch-number" class="number-input" type="number" min="35" max="75" step="5" value="55" aria-label="Camera pitch in degrees"></div>
+              <input id="pitch-input" type="range" min="35" max="75" step="5" value="55" aria-describedby="pitch-help">
+              <div class="range-scale"><span>35°</span><span>75°</span></div>
+              <p id="pitch-help" class="field-help">Downward camera angle relative to the vehicle.</p>
+            </div>
+
+            <div class="panel-divider" aria-hidden="true"></div>
+            <div class="button-row">
+              <button id="play-button" class="button button-primary" type="button" aria-pressed="false"><span class="play-icon" aria-hidden="true">▶</span> Run mission</button>
+              <button id="reset-button" class="button button-quiet" type="button">Reset</button>
+            </div>
+            <div class="button-row secondary-actions">
+              <button id="defaults-button" class="text-button" type="button">Restore defaults</button>
+              <button id="view-button" class="text-button" type="button">Reset camera</button>
+            </div>
+            <p class="keyboard-help"><kbd>Space</kbd> play/pause <kbd>R</kbd> restart <kbd>T</kbd> top-down <kbd>V</kbd> reset view <kbd>F</kbd> FPV</p>
+          </div>
+        </details>
+      </aside>
+
+      <aside class="right-rail" aria-label="View and map controls">
+        <details class="cockpit-panel view-panel" open>
+          <summary><span class="summary-icon" aria-hidden="true">⌖</span><span>View &amp; map</span><span class="panel-live">3D</span></summary>
+          <div class="panel-body">
+            <div class="panel-kicker">Camera perspective</div>
+            <div id="view-controls" class="view-controls" role="group" aria-label="Camera perspective">
+              <button id="fpv-button" class="view-button" type="button" aria-pressed="false"><span class="view-glyph" aria-hidden="true">◉</span><span>FPV</span></button>
+              <button id="top-button" class="view-button" type="button" aria-pressed="false"><span class="view-glyph" aria-hidden="true">⊞</span><span>Top-down</span></button>
+              <button id="orbit-button" class="view-button" type="button" aria-pressed="true"><span class="view-glyph" aria-hidden="true">◌</span><span>Orbit</span></button>
+            </div>
+            <p class="field-help view-help">Airframe, survey, and free orbit cameras.</p>
+
+            <div class="panel-divider" aria-hidden="true"></div>
+            <div class="panel-kicker">Environment visibility</div>
+            <div class="view-mode-bar">
+              <div class="view-modes" role="group" aria-label="Environment visibility">
+                <button id="truth-view-button" type="button" aria-pressed="true">World truth</button>
+                <button id="mapped-view-button" type="button" aria-pressed="false">Robot map</button>
+              </div>
+              <span id="view-mode-description">World truth · outlined dots are mapped features</span>
+            </div>
+            <label class="toggle-row" for="knowledge-toggle">
+              <span><strong>Robot map fog</strong><small>Hide unobserved scenery</small></span>
+              <input id="knowledge-toggle" type="checkbox" role="switch">
+              <span class="toggle-track" aria-hidden="true"><span></span></span>
+            </label>
+
+            <div class="panel-divider" aria-hidden="true"></div>
+            <section class="inspect-section" aria-live="polite">
+              <div class="panel-kicker">Scene detail</div>
+              <h2 id="inspect-title">Select a mapped marker</h2>
+              <p id="inspect-description">Click a beacon, safety zone, or landmark in the scene to inspect its role in the planning problem.</p>
+            </section>
+
+            <details class="path-legend">
+              <summary>Path legend</summary>
+              <div class="legend-grid" aria-label="Planning path legend">
+                <span><i class="legend-swatch swatch-tree" aria-hidden="true"></i>ReRoot tree</span>
+                <span><i class="legend-swatch swatch-nominal" aria-hidden="true"></i>Nominal route</span>
+                <span><i class="legend-swatch swatch-committed" aria-hidden="true"></i>Committed route</span>
+                <span><i class="legend-swatch swatch-backup" aria-hidden="true"></i>Backup route</span>
+                <span><i class="legend-swatch swatch-trail" aria-hidden="true"></i>Flight trails</span>
+              </div>
+            </details>
+
+            <details class="assumptions">
+              <summary>Model assumptions</summary>
+              <p>The 320 × 240 inset shows the actual image processed by FAST corner detection and oriented BRIEF matching. Simulated depth anchors the detected corners to surfaces; this is depth-assisted mapping, not a full SLAM implementation. By default, the simulation uses a 75 m, 90° processing footprint with line-of-sight occlusion, exact yaw and terrain, and ideal semantic landmarks. Gold outlined dots mark mapped features at their world locations; bright mint dots are currently tracked. These annotations remain visible through scenery. Aircraft markers are enlarged and banking is smoothed for display only.</p>
+              <p>Robot map fog hides unobserved scenery; mapped features alone do not certify a safe corridor. Ideal crowd recognition reveals the stadium's complete simulated no-fly boundary. Recognition does not authorize overflight. Home is surveyed; other corridors and renewal orbits are verified online. Restrictive settings may cause continued loitering. Viewer movement does not affect sensing.</p>
+              <p>Gatekeeper safety checks proposed flights; turning it off runs the direct nominal controller. Both modes stop with a red FAIL on an actual constraint violation. Feature overlap is required when no landmark supplies localization. Future image matches are predicted from mapped corners, so gatekeeper mode does not guarantee tracking for every setting.</p>
+            </details>
+            <details class="assumptions">
+              <summary>Ann Arbor visual references</summary>
+              <p>Procedural interpretations of the <a href="https://www.robotics.umich.edu/about/facilities/ford-robotics-building/" target="_blank" rel="noreferrer">Ford Robotics Building</a>, <a href="https://mgoblue.com/sports/2017/6/16/facilities-michigan-stadium-html?id=157" target="_blank" rel="noreferrer">Michigan Stadium</a>, and <a href="https://www.uofmhealth.org/our-care/clinical-units/survival-flight" target="_blank" rel="noreferrer">Michigan Medicine's Survival Flight helipad</a>. The river valley and gentle rises draw on Ann Arbor's <a href="https://www.a2gov.org/media/u1qjqduh/nfmasterplan_6-04.pdf" target="_blank" rel="noreferrer">Natural Features Master Plan</a>. Layout and scale are compressed; restrictions are simulated.</p>
+            </details>
+          </div>
+        </details>
+      </aside>
+
+      <div id="failure-alert" class="failure-alert" role="alert" aria-live="assertive" hidden>
+        <section class="failure-card" aria-labelledby="failure-title" aria-describedby="failure-reason failure-measurement failure-time">
+          <div class="failure-mark" aria-hidden="true">FAIL</div>
+          <h2 id="failure-title">Safety stop</h2>
+          <p id="failure-reason" class="failure-reason">The mission stopped after a safety check failed.</p>
+          <p id="failure-measurement" class="failure-measurement"></p>
+          <p id="failure-time" class="failure-time"></p>
+          <button id="failure-reset" class="button failure-reset" type="button">Reset mission</button>
+        </section>
+      </div>
+
+      <div id="initialization-error" class="initialization-error" role="alert" aria-live="assertive" hidden>
+        <section class="initialization-card" aria-labelledby="initialization-error-title">
+          <h2 id="initialization-error-title">Failed to initialize</h2>
+          <p id="initialization-error-message">The planning worker could not start.</p>
+          <button id="initialization-reset" class="button failure-reset" type="button">Reset mission</button>
+        </section>
+      </div>
+
+      <aside class="sensor-inset" aria-label="Onboard sensor camera">
+        <div class="sensor-heading"><span class="sensor-dot" aria-hidden="true"></span><span>Onboard sensor</span><span class="sensor-channel">CAM / 01</span></div>
+        <div class="sensor-frame">
+          <canvas id="sensor-canvas" width="320" height="240" aria-label="Live onboard sensor camera showing mapped features"></canvas>
+          <span class="sensor-crosshair" aria-hidden="true"></span>
+          <span class="sensor-corner sensor-corner-tl" aria-hidden="true"></span><span class="sensor-corner sensor-corner-tr" aria-hidden="true"></span><span class="sensor-corner sensor-corner-bl" aria-hidden="true"></span><span class="sensor-corner sensor-corner-br" aria-hidden="true"></span>
+        </div>
+        <div id="sensor-status" class="sensor-status" role="status" aria-live="polite">Awaiting sensor frame</div>
+        <div class="sensor-legend" aria-label="Sensor feature legend">
+          <span><i class="sensor-swatch sensor-new" aria-hidden="true"></i>New corners</span>
+          <span><i class="sensor-swatch sensor-match" aria-hidden="true"></i>Actual matched corners</span>
+        </div>
+      </aside>
+
+      <details class="telemetry-drawer">
+        <summary>
+          <span class="summary-icon" aria-hidden="true">⌁</span>
+          <span class="telemetry-label">Mission telemetry</span>
+          <span class="telemetry-status"><span class="state-dot" aria-hidden="true"></span><span id="status-text">Ready to plan a safe route.</span></span>
+          <span class="telemetry-caret" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="telemetry-body">
+          <div class="telemetry-overview">
+            <div class="telemetry-event"><span class="panel-kicker">Latest event</span><p id="event-text" aria-live="polite">No mission events yet.</p></div>
+            <dl class="metric-grid">
+              <div><dt>Elapsed time</dt><dd><span id="time-value">0.0</span></dd></div>
+              <div><dt>Localization error</dt><dd><span id="error-value">0.0</span></dd></div>
+              <div><dt>Shared features</dt><dd id="tracked-value">0</dd></div>
+              <div><dt>Tree nodes</dt><dd id="nodes-value">0</dd></div>
+              <div><dt>Landmarks</dt><dd id="landmarks-value">0</dd></div>
+            </dl>
+          </div>
+          <div class="charts-row" aria-label="Mission metrics">
+            <article class="chart-card">
+              <div class="chart-heading"><span>Localization error</span><strong id="budget-chart-value"></strong><small>m</small></div>
+              <canvas id="budget-chart" width="560" height="150" aria-label="Localization error over time"></canvas>
+            </article>
+            <article class="chart-card">
+              <div class="chart-heading"><span>Shared features</span><strong id="features-chart-value"></strong><small>count</small></div>
+              <canvas id="features-chart" width="560" height="150" aria-label="Shared feature overlap over time"></canvas>
+            </article>
+          </div>
+          <pre id="diagnostics" class="diagnostics" aria-label="Renderer diagnostics">Renderer diagnostics will appear here.</pre>
+        </div>
+      </details>
+    </main>
+
+    <footer class="demo-footer"><a href="https://dcherenson.github.io/publications.html">Daniel M. Cherenson</a><span aria-hidden="true">·</span><span>Safe planning under uncertainty</span></footer>
+    <script type="module" src="./assets/budget-planning/app.js"></script>
+  </body>
+</html>

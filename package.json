@@ -1,0 +1,16 @@
+{
+  "name": "reroot-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/budget-planning/*.test.js",
+    "test:missions": "node --expose-gc tests/budget-planning/missions.mjs",
+    "test:browser": "playwright test",
+    "serve": "python3 -m http.server 4180 --bind 127.0.0.1",
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "three": "0.186.1"
+  }
+}

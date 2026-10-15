@@ -1,0 +1,821 @@
+{
+  "date": "2026-10-15",
+  "scope": "Standalone repository migration, local CC0 vegetation meshes, terrain shading, responsive telemetry, camera FOV/range/pitch controls",
+  "environment": "Local macOS; Chromium Metal for rendered-camera missions, full-tree FPS and explicit-GC heap checks; Chromium, Firefox and WebKit for functional browser checks",
+  "unit": {
+    "passed": 77,
+    "failed": 0
+  },
+  "browser": {
+    "functionalPassed": 66,
+    "performancePassed": 4,
+    "failed": 0,
+    "browsers": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
+    "note": "51 scene, geometry, vision and layout checks rerun after the final Ann Arbor-only tree scale correction. Failure-mode and deployment checks passed separately. Performance tests are Chromium-only."
+  },
+  "missionSuite": {
+    "kind": "pixel-mission-suite",
+    "mode": "sequential-browser-child-processes",
+    "baseUrl": "http://127.0.0.1:4180",
+    "worlds": [
+      "farm",
+      "tucson",
+      "ann-arbor"
+    ],
+    "goal": {
+      "steps": 9000,
+      "simulatedSeconds": 1800,
+      "reportPeriod": 100,
+      "memory": true,
+      "assertGoal": true
+    },
+    "safeBudgetOne": {
+      "steps": 600,
+      "simulatedSeconds": 120,
+      "reportPeriod": 100,
+      "budget": 1,
+      "assertSafe": true
+    },
+    "limits": {
+      "features": 1000,
+      "nodes": 4000,
+      "trails": 3000,
+      "history": 1500,
+      "retainedHeapDeltaBytes": 2097152
+    },
+    "summaries": [
+      {
+        "world": "farm",
+        "mode": "goal",
+        "requestedSteps": 9000,
+        "completedSteps": 9000,
+        "simulatedSeconds": 1800.0000000002722,
+        "successTime": 47.80000000000014,
+        "goalReached": true,
+        "fault": null,
+        "error": null,
+        "maxBudget": 1.3200000000000007,
+        "maxError": 1.380000000000001,
+        "peakError": 1.380000000000001,
+        "maxFeatures": 697,
+        "maxNodes": 235,
+        "bounded": {
+          "features": {
+            "observedMax": 697,
+            "limit": 1000,
+            "passed": true
+          },
+          "nodes": {
+            "observedMax": 235,
+            "limit": 4000,
+            "passed": true
+          },
+          "trails": {
+            "observedMax": 3000,
+            "limit": 3000,
+            "backingDataLength": 12000,
+            "backingByteLength": 48000,
+            "passed": true
+          },
+          "history": {
+            "observedMax": 1500,
+            "limit": 1500,
+            "backingDataLength": 6000,
+            "backingByteLength": 24000,
+            "passed": true
+          }
+        },
+        "nodeGrowthAfterGoal": {
+          "sampleCount": 89,
+          "firstPostGoalNodes": 235,
+          "lastPostGoalNodes": 235,
+          "stopped": true
+        },
+        "rendererUpdates": 91,
+        "finalResources": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 282,
+          "triangles": 245800,
+          "geometries": 196,
+          "textures": 7,
+          "mappedFeatures": 697,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "knowledgeView": false,
+          "lastTime": 1800.0000000002722
+        },
+        "memory": {
+          "samplePeriodSeconds": 300,
+          "sampleCount": 7,
+          "postWarmupSampleCount": 6,
+          "firstPostWarmupUsedHeapBytes": 10351680,
+          "lastPostWarmupUsedHeapBytes": 10309168,
+          "retainedHeapDeltaBytes": -42512,
+          "retainedHeapDeltaLimitBytes": 2097152,
+          "passed": true
+        }
+      },
+      {
+        "world": "tucson",
+        "mode": "goal",
+        "requestedSteps": 9000,
+        "completedSteps": 9000,
+        "simulatedSeconds": 1800.0000000002722,
+        "successTime": 413.5999999999851,
+        "goalReached": true,
+        "fault": null,
+        "error": null,
+        "maxBudget": 2.820000000000002,
+        "maxError": 2.8799999999999786,
+        "peakError": 2.8799999999999786,
+        "maxFeatures": 1000,
+        "maxNodes": 889,
+        "bounded": {
+          "features": {
+            "observedMax": 1000,
+            "limit": 1000,
+            "passed": true
+          },
+          "nodes": {
+            "observedMax": 889,
+            "limit": 4000,
+            "passed": true
+          },
+          "trails": {
+            "observedMax": 3000,
+            "limit": 3000,
+            "backingDataLength": 12000,
+            "backingByteLength": 48000,
+            "passed": true
+          },
+          "history": {
+            "observedMax": 1500,
+            "limit": 1500,
+            "backingDataLength": 6000,
+            "backingByteLength": 24000,
+            "passed": true
+          }
+        },
+        "nodeGrowthAfterGoal": {
+          "sampleCount": 71,
+          "firstPostGoalNodes": 889,
+          "lastPostGoalNodes": 889,
+          "stopped": true
+        },
+        "rendererUpdates": 91,
+        "finalResources": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 171,
+          "triangles": 778544,
+          "geometries": 161,
+          "textures": 9,
+          "mappedFeatures": 1000,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 1800.0000000002722
+        },
+        "memory": {
+          "samplePeriodSeconds": 300,
+          "sampleCount": 7,
+          "postWarmupSampleCount": 6,
+          "firstPostWarmupUsedHeapBytes": 11037632,
+          "lastPostWarmupUsedHeapBytes": 9672504,
+          "retainedHeapDeltaBytes": -1365128,
+          "retainedHeapDeltaLimitBytes": 2097152,
+          "passed": true
+        }
+      },
+      {
+        "world": "ann-arbor",
+        "mode": "goal",
+        "requestedSteps": 9000,
+        "completedSteps": 9000,
+        "simulatedSeconds": 1800.0000000002722,
+        "successTime": 90.60000000000075,
+        "goalReached": true,
+        "fault": null,
+        "error": null,
+        "maxBudget": 4.619999999999999,
+        "maxError": 4.679999999999939,
+        "peakError": 4.679999999999939,
+        "maxFeatures": 1000,
+        "maxNodes": 414,
+        "bounded": {
+          "features": {
+            "observedMax": 1000,
+            "limit": 1000,
+            "passed": true
+          },
+          "nodes": {
+            "observedMax": 414,
+            "limit": 4000,
+            "passed": true
+          },
+          "trails": {
+            "observedMax": 3000,
+            "limit": 3000,
+            "backingDataLength": 12000,
+            "backingByteLength": 48000,
+            "passed": true
+          },
+          "history": {
+            "observedMax": 1500,
+            "limit": 1500,
+            "backingDataLength": 6000,
+            "backingByteLength": 24000,
+            "passed": true
+          }
+        },
+        "nodeGrowthAfterGoal": {
+          "sampleCount": 87,
+          "firstPostGoalNodes": 414,
+          "lastPostGoalNodes": 414,
+          "stopped": true
+        },
+        "rendererUpdates": 91,
+        "finalResources": {
+          "world": "ann-arbor",
+          "objects": 4,
+          "drawCalls": 197,
+          "triangles": 266232,
+          "geometries": 185,
+          "textures": 9,
+          "mappedFeatures": 1000,
+          "landmarksVisible": 5,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 1800.0000000002722
+        },
+        "memory": {
+          "samplePeriodSeconds": 300,
+          "sampleCount": 7,
+          "postWarmupSampleCount": 6,
+          "firstPostWarmupUsedHeapBytes": 10138780,
+          "lastPostWarmupUsedHeapBytes": 9971072,
+          "retainedHeapDeltaBytes": -167708,
+          "retainedHeapDeltaLimitBytes": 2097152,
+          "passed": true
+        }
+      },
+      {
+        "world": "farm",
+        "mode": "safe-budget-1",
+        "requestedSteps": 600,
+        "completedSteps": 600,
+        "simulatedSeconds": 120.00000000000117,
+        "successTime": null,
+        "goalReached": false,
+        "fault": null,
+        "error": null,
+        "maxBudget": 0.9000000000000004,
+        "maxError": 0.9600000000000026,
+        "peakError": 0.9600000000000026,
+        "maxFeatures": 450,
+        "maxNodes": 426,
+        "bounded": {
+          "features": {
+            "observedMax": 450,
+            "limit": 1000,
+            "passed": true
+          },
+          "nodes": {
+            "observedMax": 426,
+            "limit": 4000,
+            "passed": true
+          },
+          "trails": {
+            "observedMax": 601,
+            "limit": 3000,
+            "backingDataLength": 12000,
+            "backingByteLength": 48000,
+            "passed": true
+          },
+          "history": {
+            "observedMax": 601,
+            "limit": 1500,
+            "backingDataLength": 6000,
+            "backingByteLength": 24000,
+            "passed": true
+          }
+        },
+        "nodeGrowthAfterGoal": null,
+        "rendererUpdates": 7,
+        "finalResources": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 283,
+          "triangles": 223684,
+          "geometries": 196,
+          "textures": 7,
+          "mappedFeatures": 450,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "knowledgeView": false,
+          "lastTime": 120.00000000000117
+        },
+        "memory": null
+      },
+      {
+        "world": "tucson",
+        "mode": "safe-budget-1",
+        "requestedSteps": 600,
+        "completedSteps": 600,
+        "simulatedSeconds": 120.00000000000117,
+        "successTime": null,
+        "goalReached": false,
+        "fault": null,
+        "error": null,
+        "maxBudget": 0.9000000000000004,
+        "maxError": 0.9600000000000016,
+        "peakError": 0.9600000000000016,
+        "maxFeatures": 904,
+        "maxNodes": 408,
+        "bounded": {
+          "features": {
+            "observedMax": 904,
+            "limit": 1000,
+            "passed": true
+          },
+          "nodes": {
+            "observedMax": 408,
+            "limit": 4000,
+            "passed": true
+          },
+          "trails": {
+            "observedMax": 601,
+            "limit": 3000,
+            "backingDataLength": 12000,
+            "backingByteLength": 48000,
+            "passed": true
+          },
+          "history": {
+            "observedMax": 601,
+            "limit": 1500,
+            "backingDataLength": 6000,
+            "backingByteLength": 24000,
+            "passed": true
+          }
+        },
+        "nodeGrowthAfterGoal": null,
+        "rendererUpdates": 7,
+        "finalResources": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 172,
+          "triangles": 733946,
+          "geometries": 161,
+          "textures": 9,
+          "mappedFeatures": 904,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 120.00000000000117
+        },
+        "memory": null
+      },
+      {
+        "world": "ann-arbor",
+        "mode": "safe-budget-1",
+        "requestedSteps": 600,
+        "completedSteps": 600,
+        "simulatedSeconds": 120.00000000000117,
+        "successTime": null,
+        "goalReached": false,
+        "fault": null,
+        "error": null,
+        "maxBudget": 0.7200000000000002,
+        "maxError": 0.7799999999999985,
+        "peakError": 0.7799999999999985,
+        "maxFeatures": 881,
+        "maxNodes": 388,
+        "bounded": {
+          "features": {
+            "observedMax": 881,
+            "limit": 1000,
+            "passed": true
+          },
+          "nodes": {
+            "observedMax": 388,
+            "limit": 4000,
+            "passed": true
+          },
+          "trails": {
+            "observedMax": 601,
+            "limit": 3000,
+            "backingDataLength": 12000,
+            "backingByteLength": 48000,
+            "passed": true
+          },
+          "history": {
+            "observedMax": 601,
+            "limit": 1500,
+            "backingDataLength": 6000,
+            "backingByteLength": 24000,
+            "passed": true
+          }
+        },
+        "nodeGrowthAfterGoal": null,
+        "rendererUpdates": 7,
+        "finalResources": {
+          "world": "ann-arbor",
+          "objects": 4,
+          "drawCalls": 197,
+          "triangles": 244314,
+          "geometries": 185,
+          "textures": 9,
+          "mappedFeatures": 881,
+          "landmarksVisible": 5,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 120.00000000000117
+        },
+        "memory": null
+      }
+    ],
+    "errors": [],
+    "passed": true
+  },
+  "missionRunNote": "Farm and Tucson results are from the all-world run. Ann Arbor was rerun after restoring its previous tree crown dimensions; that renderer correction is conditional on the Ann Arbor world and does not change Farm or Tucson.",
+  "customCameraMission": {
+    "worldId": "farm",
+    "seed": 1337,
+    "config": {
+      "budget": 5,
+      "minFeatures": 6,
+      "speed": 10,
+      "radius": 10,
+      "gatekeeper": true,
+      "horizontalFov": 95,
+      "sensingRange": 80,
+      "downwardPitch": 60
+    },
+    "requestedSteps": 600,
+    "completedSteps": 600,
+    "simulatedSeconds": 120.00000000000117,
+    "goalReached": true,
+    "successTime": 48.80000000000015,
+    "fault": null,
+    "error": null,
+    "maxError": 1.5599999999999952,
+    "maxShared": 164,
+    "assertions": {
+      "assertGoal": false,
+      "assertSafe": true,
+      "assertFail": false,
+      "passed": true,
+      "errors": []
+    }
+  },
+  "fullTreePerformance": [
+    {
+      "fps": 60.251462716295286,
+      "frames": 242,
+      "treeDrawCount": 68322,
+      "diagnostics": {
+        "world": "farm",
+        "objects": 4,
+        "drawCalls": 45,
+        "triangles": 135872,
+        "geometries": 196,
+        "textures": 7,
+        "mappedFeatures": 50,
+        "landmarksVisible": 4,
+        "zonesVisible": 2,
+        "knowledgeView": false,
+        "lastTime": 0
+      },
+      "sensor": {
+        "samples": 21,
+        "processingMs": 110.10000014305115,
+        "maxProcessingMs": 7.600000023841858,
+        "wallMs": 252.00000029802322,
+        "maxWallMs": 16.600000023841858,
+        "intervalTotalMs": 4016.399999976158,
+        "intervalCount": 20,
+        "minIntervalMs": 183.30000001192093,
+        "maxIntervalMs": 217.5999999642372,
+        "averageProcessingMs": 5.242857149669102,
+        "averageWallMs": 12.000000014191581,
+        "averageIntervalMs": 200.8199999988079,
+        "anchors": 50,
+        "previous": 110,
+        "rgbaBytes": 307200,
+        "depthBytes": 307200
+      }
+    },
+    {
+      "fps": 60.24996265498182,
+      "frames": 242,
+      "treeDrawCount": 68322,
+      "diagnostics": {
+        "world": "tucson",
+        "objects": 4,
+        "drawCalls": 22,
+        "triangles": 655896,
+        "geometries": 161,
+        "textures": 9,
+        "mappedFeatures": 59,
+        "landmarksVisible": 6,
+        "zonesVisible": 3,
+        "knowledgeView": false,
+        "lastTime": 0
+      },
+      "sensor": {
+        "samples": 21,
+        "processingMs": 116.39999985694885,
+        "maxProcessingMs": 7.900000035762787,
+        "wallMs": 273.30000001192093,
+        "maxWallMs": 17.700000047683716,
+        "intervalTotalMs": 4016.5,
+        "intervalCount": 20,
+        "minIntervalMs": 183.4000000357628,
+        "maxIntervalMs": 216.69999998807907,
+        "averageProcessingMs": 5.542857136045184,
+        "averageWallMs": 13.014285714853377,
+        "averageIntervalMs": 200.825,
+        "anchors": 59,
+        "previous": 141,
+        "rgbaBytes": 307200,
+        "depthBytes": 307200
+      }
+    },
+    {
+      "fps": 60.25146271629527,
+      "frames": 242,
+      "treeDrawCount": 68321,
+      "diagnostics": {
+        "world": "ann-arbor",
+        "objects": 4,
+        "drawCalls": 77,
+        "triangles": 163138,
+        "geometries": 185,
+        "textures": 9,
+        "mappedFeatures": 82,
+        "landmarksVisible": 5,
+        "zonesVisible": 3,
+        "knowledgeView": false,
+        "lastTime": 0
+      },
+      "sensor": {
+        "samples": 21,
+        "processingMs": 142.00000005960464,
+        "maxProcessingMs": 9.300000011920929,
+        "wallMs": 296.99999994039536,
+        "maxWallMs": 19,
+        "intervalTotalMs": 4016.400000035763,
+        "intervalCount": 20,
+        "minIntervalMs": 198.10000002384186,
+        "maxIntervalMs": 216.69999998807907,
+        "averageProcessingMs": 6.761904764743078,
+        "averageWallMs": 14.142857140018826,
+        "averageIntervalMs": 200.82000000178815,
+        "anchors": 82,
+        "previous": 220,
+        "rgbaBytes": 307200,
+        "depthBytes": 307200
+      }
+    }
+  ],
+  "resetStress": {
+    "resets": 100,
+    "samples": [
+      {
+        "iteration": 10,
+        "heap": 11048332,
+        "backingStorage": 15732574,
+        "renderer": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 277,
+          "triangles": 201006,
+          "geometries": 190,
+          "textures": 7,
+          "mappedFeatures": 50,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 20,
+        "heap": 10752884,
+        "backingStorage": 15825110,
+        "renderer": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 166,
+          "triangles": 709804,
+          "geometries": 155,
+          "textures": 9,
+          "mappedFeatures": 59,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 30,
+        "heap": 11710548,
+        "backingStorage": 16050466,
+        "renderer": {
+          "world": "ann-arbor",
+          "objects": 4,
+          "drawCalls": 189,
+          "triangles": 214602,
+          "geometries": 177,
+          "textures": 9,
+          "mappedFeatures": 82,
+          "landmarksVisible": 5,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 40,
+        "heap": 11307836,
+        "backingStorage": 15732574,
+        "renderer": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 277,
+          "triangles": 201006,
+          "geometries": 190,
+          "textures": 7,
+          "mappedFeatures": 50,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 50,
+        "heap": 10256992,
+        "backingStorage": 15825110,
+        "renderer": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 166,
+          "triangles": 709804,
+          "geometries": 155,
+          "textures": 9,
+          "mappedFeatures": 59,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 60,
+        "heap": 10563932,
+        "backingStorage": 16050466,
+        "renderer": {
+          "world": "ann-arbor",
+          "objects": 4,
+          "drawCalls": 189,
+          "triangles": 214602,
+          "geometries": 177,
+          "textures": 9,
+          "mappedFeatures": 82,
+          "landmarksVisible": 5,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 70,
+        "heap": 11537964,
+        "backingStorage": 15732574,
+        "renderer": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 277,
+          "triangles": 201006,
+          "geometries": 190,
+          "textures": 7,
+          "mappedFeatures": 50,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 80,
+        "heap": 10457512,
+        "backingStorage": 15825110,
+        "renderer": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 166,
+          "triangles": 709804,
+          "geometries": 155,
+          "textures": 9,
+          "mappedFeatures": 59,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 90,
+        "heap": 10738480,
+        "backingStorage": 16050466,
+        "renderer": {
+          "world": "ann-arbor",
+          "objects": 4,
+          "drawCalls": 189,
+          "triangles": 214602,
+          "geometries": 177,
+          "textures": 9,
+          "mappedFeatures": 82,
+          "landmarksVisible": 5,
+          "zonesVisible": 3,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      },
+      {
+        "iteration": 100,
+        "heap": 11681044,
+        "backingStorage": 15732574,
+        "renderer": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 277,
+          "triangles": 201006,
+          "geometries": 190,
+          "textures": 7,
+          "mappedFeatures": 50,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "orbit"
+        }
+      }
+    ],
+    "passed": true,
+    "note": "Retained JS heap stays within 10.3\u201311.8 MB; backing storage and geometry/texture counts are constant when comparing the same world."
+  },
+  "integration": {
+    "staticBuild": true,
+    "projectPrefixBrowserChecks": 3,
+    "legacyRedirect": true,
+    "originalWebsiteJekyllBuild": true,
+    "pagesActivation": "Deferred to the user; workflow builds and skips deployment until Pages is enabled."
+  },
+  "review": "Main agent personally inspected delegated code, model wiring and licenses, camera/sensing alignment, final UI screenshots, actual test logs, mission outcomes, heap samples and GPU-resource counts.",
+  "limitations": [
+    "Scenario tests do not establish feasibility or tracking safety for all slider combinations.",
+    "The full-tree FPS test measures rendering and 5 Hz sensing, not worst-case planner growth throughput.",
+    "The web deployment cannot be verified until the user enables GitHub Pages."
+  ],
+  "runtimeSha256": {
+    "index.html": "a6550b66caa14ee6d6860feaa70ff362b6bb268bffe2aa2d287721e5fa7fd07e",
+    "budget-planning.html": "dec8d993d064a3618f57ce13d21a7e85e7151287d247a12d5e514781342afe83",
+    "assets/budget-planning/app.js": "68485c205c5838d092a4e436f9fc3da69c6ed518918b0318fbcfa283a82a3043",
+    "assets/budget-planning/dubins.js": "15181e6702f52dcb7eeced996812ca335514d02ef2762a0af619625cf8baf91b",
+    "assets/budget-planning/knowledge.js": "37adda5f8bac7d849012ef5e934c3bf7c99a39e581cfc6482f3af07c2a163735",
+    "assets/budget-planning/landmark-models.js": "aa3cefa63df7a19cdd5753f8be9e9d0107f0e989aae828b39f8ee36bfb358e18",
+    "assets/budget-planning/pixel-features.js": "ad60b12990df01845f20167b7cf6824ba06ad4958b49cfcab936921ec62e9b14",
+    "assets/budget-planning/planner.js": "1d06e18d4d4f386b7c1a655c179f27055df5dc0648378aae2f98a25d60aa3d1d",
+    "assets/budget-planning/renderer.js": "a47a25bb175d3fd8cf3bbdca7480ea06df32d2b8fee5e1a223a3ced059ecac0d",
+    "assets/budget-planning/scenery-models.js": "ad7d006e7572b54fed3e88358436288d793fad412de2a60324f87538838ec57b",
+    "assets/budget-planning/sensor-camera.js": "9f29ae754ad2f64f25a204603cd6e24ed58b73b52fac62adb56e88859b95efe4",
+    "assets/budget-planning/simulation.js": "cf49d56ed610e5f8843b1e8fe77e0c835e36139ec18a0a104e275eb5949e873d",
+    "assets/budget-planning/thick-lines.js": "885e78437f6e0f7b9912fe57e3e9dbaf367ef4eb67a13ab426ec290d85e42856",
+    "assets/budget-planning/vegetation-models.js": "0e7febe6292ff411bbfc5339c6988a48896e1df4cc54abf1a8049796bec28472",
+    "assets/budget-planning/vendor/OrbitControls.js": "30386f7141d5ce5d5e0a3ab643e4eb16265f4564466108105ce449857f62fdda",
+    "assets/budget-planning/vendor/three.core.js": "9edde002b066a9a05676a6127f67735b62baf399bdea529f2f7e31657da769e6",
+    "assets/budget-planning/vendor/three.module.js": "9052042d676cb0fdc1ddfefe193053f34b7ac0513a616fdac4535d49987812ea",
+    "assets/budget-planning/vision.js": "2e08d8223f2b0b0350c08670764d648fb1fe687aea6d7ade24ce1f5dc26495da",
+    "assets/budget-planning/worker.js": "75c1f151ac6dbe5f9551599d952c2a47f59927c45986931eca0116853e1f7c95",
+    "assets/budget-planning/worlds.js": "913fdc6740e4156d9667c57bf5b060deec01c0f8cc6a7ade9cdf0269f04918c5",
+    "assets/models/quaternius-nature-parts.js": "f2e813f53e583d23cd101ef46ce5481ef7d5459c708391405a5d4ab800538d40",
+    "assets/models/quaternius-nature.js": "5ddb684e24929f315564f312003e11a232583d607bb86daefe70fc86d8ab86d5",
+    "assets/budget-planning/demo.css": "08f49cf833ed700f1f849e9cd1a059ab03ea825698ac4a24fcdfe9e3ebea6613"
+  }
+}
