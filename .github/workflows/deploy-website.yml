@@ -1,0 +1,28 @@
+name: Deploy research website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The built-in token is not used; the scoped secret authorizes the other repository.
+permissions: {}
+
+jobs:
+  dispatch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger website deployment
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Add the WEBSITE_DEPLOY_TOKEN repository secret with Actions write access to dcherenson/dcherenson.github.io."
+            exit 1
+          fi
+          gh api --method POST \
+            repos/dcherenson/dcherenson.github.io/actions/workflows/pages.yml/dispatches \
+            -f ref=main
+          echo "Website deployment requested for the latest ReRoot main commit."
