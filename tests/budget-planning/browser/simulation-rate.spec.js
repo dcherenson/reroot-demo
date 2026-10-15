@@ -56,7 +56,7 @@ test('right-side playback slider stays visible and clears sensor and expanded te
  await page.goto('/');await page.waitForFunction(()=>window.__budgetDemo?.getState()!==null);
  await expect(page.locator('.world-topbar')).not.toContainText('Interactive research demo');
  await expect(page.locator('#demo-title')).toHaveText('Autonomy Architectures for Safe Planning in Unknown Environments Under Budget Constraints');
- await page.locator('.telemetry-drawer > summary').click();
+ await expect(page.locator('.telemetry-drawer')).toHaveJSProperty('open',true);
  for(const viewport of [{width:1440,height:1000},{width:1280,height:720},{width:1024,height:768},{width:768,height:844},{width:640,height:844},{width:390,height:844},{width:320,height:844}]){
   await page.setViewportSize(viewport);
   const layout=await page.evaluate(()=>{

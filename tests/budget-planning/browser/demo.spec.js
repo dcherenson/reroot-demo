@@ -47,7 +47,7 @@ test('expanded telemetry reserves the tuning rail and sensor slot at every suppo
  for(const viewport of viewports){
   await page.setViewportSize(viewport);await page.goto('/budget-planning.html');
   await page.waitForFunction(()=>window.__budgetDemo?.getState()!==null);
-  await page.locator('.telemetry-drawer > summary').click();
+  await expect(page.locator('.telemetry-drawer')).toHaveJSProperty('open',true);
   const layout=await page.evaluate(ids=>{
    const rect=element=>{const box=element.getBoundingClientRect();return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:box.width,height:box.height};};
    const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
@@ -69,7 +69,7 @@ test('expanded telemetry reserves the tuning rail and sensor slot at every suppo
 test('camera sensing controls round-trip through the worker and restore defaults',async({page})=>{
  await page.setViewportSize({width:390,height:844});await page.goto('/budget-planning.html');
  await page.waitForFunction(()=>window.__budgetDemo?.getState()?.sensor?.horizontalFov===90&&window.__budgetDemo.getState().sensor.sensingRange===75&&window.__budgetDemo.getState().sensor.downwardPitch===55);
- await page.locator('.telemetry-drawer > summary').click();
+ await expect(page.locator('.telemetry-drawer')).toHaveJSProperty('open',true);
  const controls=[
   {id:'fov',key:'horizontalFov',value:95},
   {id:'range',key:'sensingRange',value:80},
@@ -138,7 +138,7 @@ test('compact desktop view keeps map controls visible and telemetry clears the s
  expect(compact.map.top).toBeGreaterThanOrEqual(compact.body.top-1);
  expect(compact.map.bottom).toBeLessThanOrEqual(compact.body.bottom+1);
  expect(compact.telemetry.right).toBeLessThanOrEqual(compact.sensor.left-8);
- await page.locator('.telemetry-drawer > summary').click();
+ await expect(page.locator('.telemetry-drawer')).toHaveJSProperty('open',true);
  const open=await page.evaluate(()=>{
   const sensor=document.querySelector('.sensor-inset').getBoundingClientRect();
   const telemetry=document.querySelector('.telemetry-drawer').getBoundingClientRect();
