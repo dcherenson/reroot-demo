@@ -10,13 +10,13 @@
   <body class="budget-demo">
     <main class="cockpit" aria-labelledby="demo-title">
       <section class="world-stage" aria-label="Interactive planning world">
-        <canvas id="scene-canvas" tabindex="0" aria-label="Interactive three dimensional mission scene. Use the mouse to orbit and click markers to inspect them. Press Space to play or pause, R to restart, T for a top-down view, V to reset the camera, and F for first person."></canvas>
+        <canvas id="scene-canvas" tabindex="0" aria-label="Interactive three dimensional mission scene. Use the mouse to orbit and click markers to inspect them. In Edit world mode, drag a highlighted handle to move a landmark, no-fly zone, or mountain. Press Space to play or pause, R to restart, T for a top-down view, V to reset the camera, and F for first person."></canvas>
         <div class="world-atmosphere" aria-hidden="true"></div>
         <div id="loading-overlay" class="loading-overlay" role="status" aria-live="polite">
           <div class="loader-ring" aria-hidden="true"></div>
           <span>Building terrain and sensors…</span>
         </div>
-        <div class="scene-hint">Drag to orbit · scroll to zoom · click a marker to inspect</div>
+        <div class="scene-hint">Drag to orbit · scroll to zoom · click a marker to inspect · Edit world to move layout</div>
       </section>
 
       <header class="world-topbar" aria-label="Mission header">
@@ -155,6 +155,34 @@
             </label>
 
             <div class="panel-divider" aria-hidden="true"></div>
+            <div class="panel-kicker">World layout</div>
+            <label class="toggle-row world-edit-toggle-row" for="world-edit-toggle">
+              <span><strong>Edit world</strong><small>Pause and drag landmarks, no-fly zones, or mountains</small></span>
+              <input id="world-edit-toggle" type="checkbox" role="switch" aria-controls="world-editor" aria-pressed="false">
+              <span class="toggle-track" aria-hidden="true"><span></span></span>
+            </label>
+            <section id="world-editor" class="world-editor" aria-labelledby="world-editor-title" hidden>
+              <h2 id="world-editor-title">Edit world layout</h2>
+              <p class="field-help">Drag a handle in this top-down view, or enter coordinates. Each move restarts the mission with the new layout.</p>
+              <label class="field-label" for="world-editor-object">Object</label>
+              <select id="world-editor-object" class="select-input" aria-label="World object to edit"></select>
+              <p id="world-edit-selection" class="world-edit-selection" aria-live="polite"></p>
+              <div class="world-edit-coordinates">
+                <label for="world-edit-x">X <input id="world-edit-x" type="number" step="0.1" inputmode="decimal" aria-label="World X coordinate"></label>
+                <label for="world-edit-y">Y <input id="world-edit-y" type="number" step="0.1" inputmode="decimal" aria-label="World Y coordinate"></label>
+              </div>
+              <div class="button-row world-edit-actions">
+                <button id="world-edit-apply" class="button button-primary" type="button">Apply position</button>
+                <button id="world-edit-cancel" class="button button-quiet" type="button">Cancel</button>
+              </div>
+              <button id="world-edit-restore" class="text-button" type="button">Restore world layout</button>
+              <p id="world-edit-status" class="world-edit-status" role="status" aria-live="polite">Drag a handle or edit its coordinates.</p>
+              <p id="world-edit-error" class="world-edit-error" role="alert" hidden></p>
+              <p id="world-edit-empty" class="field-help" hidden>No editable objects are available in this world.</p>
+              <button id="world-edit-close" class="sr-only" type="button">Close world editor</button>
+            </section>
+
+            <div class="panel-divider" aria-hidden="true"></div>
             <section class="inspect-section" aria-live="polite">
               <div class="panel-kicker">Scene detail</div>
               <h2 id="inspect-title">Select a mapped marker</h2>
@@ -220,8 +248,8 @@
       </aside>
 
       <aside class="cockpit-panel simulation-rate-panel range-field" aria-label="Simulation playback">
-        <div class="range-head"><label for="simulation-rate-input">Simulation rate</label><output for="simulation-rate-input" id="simulation-rate-value">1×</output></div>
-        <input id="simulation-rate-input" type="range" min="1" max="10" step="1" value="1" aria-describedby="simulation-rate-help" aria-valuetext="1 times normal speed" title="Simulation rate: 1×–10×">
+        <div class="range-head"><label for="simulation-rate-input">Simulation rate</label><output for="simulation-rate-input" id="simulation-rate-value">5×</output></div>
+        <input id="simulation-rate-input" type="range" min="1" max="10" step="1" value="5" aria-describedby="simulation-rate-help" aria-valuetext="5 times normal speed" title="Simulation rate: 1×–10×">
         <span id="simulation-rate-help" class="sr-only">1× to 10× playback, as processing allows. Applies immediately without restarting or changing vehicle dynamics.</span>
       </aside>
 

@@ -183,7 +183,7 @@ test('simulation rate clamps safely and changes the outstanding wall-clock delay
   assert.equal(harness.clock.pendingCount, 0, 'sensor work backpressures the next tick');
 });
 
-test('invalid and nonfinite rates default to 1, while values below 1 clamp to 1', () => {
+test('invalid and nonfinite init rates default to 5, while live updates and values below 1 clamp to 1', () => {
   const invalidInitRates = [undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 'not-a-rate'];
   for (const [index, simulationRate] of invalidInitRates.entries()) {
     const harness = createHarness();
@@ -192,7 +192,7 @@ test('invalid and nonfinite rates default to 1, while values below 1 clamp to 1'
     harness.clock.runNext();
     const snapshot = harness.completeSensor(runId);
     harness.acknowledge(runId, snapshot);
-    assert.equal(harness.clock.nextDelay(), 200, `invalid init rate ${String(simulationRate)} should use 1x`);
+    assert.equal(harness.clock.nextDelay(), 40, `invalid init rate ${String(simulationRate)} should use 5x`);
   }
 
   const harness = createHarness();
@@ -239,7 +239,7 @@ test('changing rate while a sensor frame is pending never advances or queues ano
 
 test('late sensor and ACK completion produce one immediate tick and a fresh cadence', () => {
   const harness = createHarness();
-  harness.init({ runId: 60 });
+  harness.init({ runId: 60, simulationRate: 1 });
   harness.clock.runNext();
   assert.equal(harness.simulation.advanceCount, 1);
 
@@ -283,7 +283,7 @@ test('changing rate while paused does not resume the simulation', () => {
 
 test('sensor and snapshot backpressure, pause, and stale messages never queue work', () => {
   const harness = createHarness();
-  harness.init({ runId: 3, playing: false });
+  harness.init({ runId: 3, playing: false, simulationRate: 1 });
   assert.equal(harness.clock.pendingCount, 0);
 
   // Resume schedules exactly one immediate tick, while a duplicate or stale
@@ -303,7 +303,8 @@ test('sensor and snapshot backpressure, pause, and stale messages never queue wo
   assert.equal(harness.clock.pendingCount, 0, 'pause cancels the outstanding delay');
 
   // A stale rate update cannot alter the paused run. Resuming still starts a
-  // single tick immediately, and its next interval remains the default 200ms.
+  // single tick immediately, and its next interval remains the explicit 1x
+  // cadence of 200ms.
   harness.send({ type: 'simulation-rate', runId: 2, simulationRate: 10 });
   harness.send({ type: 'play', runId: 3, playing: true });
   assert.equal(harness.clock.pendingCount, 1);

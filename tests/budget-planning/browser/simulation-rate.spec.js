@@ -4,6 +4,14 @@ test('simulation rate applies live, accelerates playback, preserves pause and su
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/');
  await page.waitForFunction(()=>window.__budgetDemo?.getState()?.time>.4);
+ const slider=page.getByRole('slider',{name:'Simulation rate'});
+ await expect(slider).toHaveValue('5');
+ await expect(page.locator('#simulation-rate-value')).toHaveText('5×');
+ await expect(slider).toHaveAttribute('aria-valuetext','5 times normal speed');
+ expect(await page.evaluate(()=>window.__budgetDemo.getLifecycle().simulationRate)).toBe(5);
+ // Compare playback against the unchanged 1x cadence even though the app now defaults to 5x.
+ await slider.fill('1');
+ await expect(slider).toHaveValue('1');
  const measure=async()=>{
   const before=await page.evaluate(()=>({time:window.__budgetDemo.getState().time,wall:performance.now()}));
   await page.waitForTimeout(1600);
@@ -13,7 +21,6 @@ test('simulation rate applies live, accelerates playback, preserves pause and su
  await page.locator('#scene-canvas').focus();await page.keyboard.press('Space');
  await page.waitForTimeout(250);
  const before=await page.evaluate(()=>({state:window.__budgetDemo.getState(),lifecycle:window.__budgetDemo.getLifecycle(),config:window.__budgetDemo.getConfig()}));
- const slider=page.getByRole('slider',{name:'Simulation rate'});
  await slider.fill('10');
  await expect(page.locator('#simulation-rate-value')).toHaveText('10×');
  await expect(slider).toHaveAttribute('aria-valuetext','10 times normal speed');
@@ -29,7 +36,7 @@ test('simulation rate applies live, accelerates playback, preserves pause and su
  test.info().annotations.push({type:'playback-rate',description:JSON.stringify({normal,fast})});
  expect(await page.evaluate(()=>window.__budgetDemo.getLifecycle().runId)).toBe(before.lifecycle.runId);
  expect(await page.evaluate(()=>window.__budgetDemo.getState().fault)).toBeNull();
- // Mission restarts retain a playback preference; restoring defaults clears it.
+ // Mission restarts retain a playback preference; restoring defaults returns it to 5x.
  await page.locator('#scene-canvas').focus();await page.keyboard.press('Space');
  await page.selectOption('#world-select','tucson');
  await page.waitForFunction(()=>window.__budgetDemo.getState()?.worldId==='tucson');
@@ -40,8 +47,8 @@ test('simulation rate applies live, accelerates playback, preserves pause and su
  await expect(slider).toHaveValue('10');
  await page.locator('#defaults-button').click();
  await page.waitForFunction(()=>window.__budgetDemo.getState()!==null);
- await expect(slider).toHaveValue('1');
- expect(await page.evaluate(()=>window.__budgetDemo.getLifecycle().simulationRate)).toBe(1);
+ await expect(slider).toHaveValue('5');
+ expect(await page.evaluate(()=>window.__budgetDemo.getLifecycle().simulationRate)).toBe(5);
  expect(errors).toEqual([]);
 });
 

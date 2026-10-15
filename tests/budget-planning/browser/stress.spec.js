@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-test('100 scene resets release renderer resources and retained heap',async({page,browserName})=>{
+test('100 scene resets with editor handles release renderer resources and retained heap',async({page,browserName})=>{
  test.skip(browserName!=='chromium','Chromium CDP supplies explicit GC for memory comparison.');test.setTimeout(180_000);
  await page.goto('/budget-planning.html');await page.waitForFunction(()=>window.__budgetDemo?.getState()!==null);
  await page.locator('#play-button').click();
@@ -8,6 +8,12 @@ test('100 scene resets release renderer resources and retained heap',async({page
  for(let i=0;i<100;i++){
   await page.evaluate(id=>window.__budgetDemo.setWorld(id),['farm','tucson','ann-arbor'][i%3]);
   await page.waitForFunction(()=>window.__budgetDemo?.getState()!==null);
+  // Render the editor's handles too, so their GPU allocations are exercised
+  // before the following reset disposes the entire world.
+  await page.evaluate(async()=>{
+   window.__budgetDemo.enterWorldEditor();
+   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  });
   if(i%10===9){await cdp.send('HeapProfiler.collectGarbage');const usage=await cdp.send('Runtime.getHeapUsage');samples.push({iteration:i+1,heap:usage.usedSize,backingStorage:usage.backingStorageSize,renderer:await page.evaluate(()=>window.__budgetDemo.getDiagnostics())});}
  }
  console.log('RESET_MEMORY',JSON.stringify(samples));
@@ -19,5 +25,5 @@ test('100 scene resets release renderer resources and retained heap',async({page
   const sameWorld=samples.filter(s=>s.iteration%3===remainder&&Number.isFinite(s.backingStorage));
   if(sameWorld.length>1)expect(sameWorld.at(-1).backingStorage-sameWorld[0].backingStorage).toBeLessThan(2*1024*1024);
  }
- for(const s of samples){expect(s.renderer.geometries).toBeLessThan(400);expect(s.renderer.textures).toBeLessThan(20);}
+ for(const s of samples){expect(s.renderer.editTargets).toBeGreaterThan(0);expect(s.renderer.geometries).toBeLessThan(400);expect(s.renderer.textures).toBeLessThan(20);}
 });

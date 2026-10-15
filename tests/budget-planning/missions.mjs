@@ -162,6 +162,11 @@ function assertMission(report, world, mode, steps, requiresGoal, requiresMemory)
     assert.equal(report.successTime !== null, true, `${world}: successTime was not recorded`);
     assert.ok(Number(report.successTime) <= Number(report.simulatedSeconds), `${world}: successTime is after the run`);
     assert.equal(report.assertions?.passed, true, `${world}: --assert-goal did not pass`);
+    if (world === 'tucson') {
+      assert.ok(report.successTime <= 240, 'Tucson default mission should reach the goal within four simulated minutes');
+      assert.ok(report.phaseCounts.backup >= 50, 'Tucson should execute at least ten simulated seconds of verified backup flight');
+      assert.ok(report.orbitStatus.some(orbit => orbit.id === 'tucson-overlook' && orbit.active), 'Tucson should discover and certify the northern trailhead online');
+    }
   } else {
     assert.equal(report.assertions?.passed, true, `${world}: --assert-safe did not pass`);
   }
@@ -197,6 +202,7 @@ function assertMission(report, world, mode, steps, requiresGoal, requiresMemory)
     completedSteps: report.completedSteps,
     simulatedSeconds: report.simulatedSeconds,
     successTime: report.successTime,
+    backupSeconds: (report.phaseCounts.backup || 0) * 0.2,
     goalReached: report.goalReached,
     fault: report.fault,
     error: report.error,

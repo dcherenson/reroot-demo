@@ -1,14 +1,23 @@
 import { DemoRenderer } from './renderer.js';
 import { createWorld } from './worlds.js';
 import { DEFAULTS } from './simulation.js';
+import { getLayoutTargets, updatedLayout, validateWorldLayout } from './world-layout.js';
 const $=id=>document.getElementById(id);
 const DEFAULT_CONFIG={...DEFAULTS,gatekeeper:DEFAULTS.gatekeeper!==false};
-let worker=null,runId=0,playing=!document.hidden,visiblePlaying=true,config={...DEFAULT_CONFIG},worldId='farm',renderer,lastSnapshot=null,pageSuspended=false,simulationRate=1;
+const DEFAULT_SIMULATION_RATE=5;
+let worker=null,runId=0,playing=!document.hidden,visiblePlaying=true,config={...DEFAULT_CONFIG},worldId='farm',renderer,lastSnapshot=null,pageSuspended=false,simulationRate=DEFAULT_SIMULATION_RATE;
 const controls=[['budget','budget'],['features','minFeatures'],['speed','speed'],['radius','radius'],['fov','horizontalFov'],['range','sensingRange'],['pitch','downwardPitch']];
 const CONTROL_UNITS={budget:' m',speed:' m/s',radius:' m',fov:'°',range:' m',pitch:'°'};
 const seed=1337;
 const sensorContext=$('sensor-canvas').getContext('2d');
 let sensorImage=null,viewMode='orbit';
+function structuredCloneSafe(value) {
+  if(value===undefined||value===null)return {};
+  try {return typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value));} catch(_error) {return {...value};}
+}
+const worldLayouts=new Map();
+let editing=false,editingResumePlaying=false,editingPriorView='orbit',editingPriorKnowledge=false,editingPriorPanelScroll=0;
+let selectedEditTarget=null;
 function inspect(info) { $('inspect-title').textContent=info?.title||'Inspect the world';$('inspect-description').textContent=info?.description||'Click a landmark or restricted area to inspect its role.'; }
 function clearFailureAlert() {
   const alert=$('failure-alert');
@@ -43,7 +52,14 @@ function updateModeIndicator(gatekeeper=config.gatekeeper!==false) {
   }
   if($('control-mode-description'))$('control-mode-description').textContent=enabled?'Nominal progress is checked before commitment.':'The nominal route is followed without gatekeeper checks.';
 }
-function setPlaying(value) {playing=Boolean(value)&&!$('play-button').disabled;$('play-button').textContent=playing?'Pause':'Play';$('play-button').setAttribute('aria-pressed',String(!playing));worker?.postMessage({type:'play',runId,playing});}
+function setPlaying(value) {
+  // World editing owns the simulation pause. A click, Space key, or browser
+  // visibility callback must not resume a mission while a preview is active.
+  playing=Boolean(value)&&!editing&&!$('play-button').disabled;
+  $('play-button').textContent=playing?'Pause':'Play';
+  $('play-button').setAttribute('aria-pressed',String(!playing));
+  worker?.postMessage({type:'play',runId,playing});
+}
 function setSimulationRate(value) {
   const rate=Number(value);
   simulationRate=Number.isFinite(rate)?Math.max(1,Math.min(10,rate)):1;
@@ -111,12 +127,15 @@ function stopForFailure(snapshot) {
   $('play-button').setAttribute('aria-disabled','true');
   $('phase-label').textContent='Fault';
 }
-function restart() {
+function restart(resumePlaying = playing) {
   if(!renderer){showInitializationError('3D rendering is unavailable. Enable WebGL 2 and reload the page.');return;}
+  if(editing){resumePlaying=editingResumePlaying;finishWorldEditor(false);}
   worker?.terminate();worker=null;runId++;const activeRunId=runId;lastSnapshot=null;pageSuspended=false;$('play-button').disabled=false;$('play-button').removeAttribute('aria-disabled');clearFailureAlert();clearInitializationError();sensorImage=null;sensorContext.clearRect(0,0,320,240);
   $('loading-overlay').hidden=false;$('loading-overlay').textContent='Building the world and surveying home…';
-  const world=createWorld(worldId,seed);renderer.setWorld(world);renderer.setSensorConfig(config);renderer.setKnowledgeView($('knowledge-toggle').checked);renderer.setViewMode(viewMode);
-  inspect();updateControls();updateModeIndicator(config.gatekeeper);setPlaying(playing);if($('scene-world-label'))$('scene-world-label').textContent=world.label;$('status-text').textContent='Initializing online planning';
+  const activeLayout=structuredCloneSafe(worldLayouts.get(worldId)||{});
+  const world=createWorld(worldId,seed,activeLayout);renderer.setWorld(world);renderer.setEditTargets(getLayoutTargets(world));renderer.setSensorConfig(config);renderer.setKnowledgeView($('knowledge-toggle').checked);renderer.setViewMode(viewMode);
+  playing=Boolean(resumePlaying);inspect();updateControls();updateModeIndicator(config.gatekeeper);setPlaying(playing);if($('scene-world-label'))$('scene-world-label').textContent=world.label;$('status-text').textContent='Initializing online planning';
+  syncEditorTargets();
   const activeWorker=worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
   activeWorker.onmessage=event=>{
     const m=event.data;if(m.runId!==undefined&&m.runId!==runId)return;
@@ -134,7 +153,7 @@ function restart() {
     if(m.type!=='snapshot'||m.snapshot.runId!==runId)return;
     const s=m.snapshot;renderer.update(s);updateDashboard(s);drawSensor(s);$('loading-overlay').hidden=true;
     // Debug data contains only bounded scalar summaries; never retains buffers.
-    lastSnapshot={worldId:s.worldId,pose:s.pose,estimate:s.estimate,time:s.time,budget:s.budget,phase:s.phase,metrics:s.metrics,vision:s.vision,sensor:s.sensor,fault:s.fault,failure:s.failure,gatekeeper:s.gatekeeper!==false,featuresTracked:s.featuresTracked,knownZoneIds:s.knownZoneIds,discoveredLandmarkIds:s.discoveredLandmarkIds,activeLandmarkIds:s.activeLandmarkIds};
+    lastSnapshot={worldId:s.worldId,worldLayout:structuredCloneSafe(activeLayout),pose:s.pose,estimate:s.estimate,time:s.time,budget:s.budget,phase:s.phase,metrics:s.metrics,vision:s.vision,sensor:s.sensor,fault:s.fault,failure:s.failure,gatekeeper:s.gatekeeper!==false,featuresTracked:s.featuresTracked,knownZoneIds:s.knownZoneIds,discoveredLandmarkIds:s.discoveredLandmarkIds,activeLandmarkIds:s.activeLandmarkIds};
     const returned={},transfers=[];
     for(const key of ['mappedFeatureIds','visibleFeatureIds','featurePositions','sensorKeypoints','treeEdges','treeColors','nominal','committedNominal','backup','trail','history'])if(s[key]?.buffer){returned[key]=s[key].buffer;transfers.push(s[key].buffer);}
     for(const key of ['cells','observed'])if(s.knowledge?.[key]){returned[key]=s.knowledge[key].buffer;transfers.push(returned[key]);}
@@ -142,7 +161,7 @@ function restart() {
     if(s.failure||s.fault||s.phase==='fault')stopForFailure(s);
   };
   activeWorker.onerror=e=>{if(worker!==activeWorker||runId!==activeRunId)return;showInitializationError(e.message||'Simulation worker failed.');};
-  activeWorker.postMessage({type:'init',runId:activeRunId,worldId,seed,config,playing,simulationRate});
+  activeWorker.postMessage({type:'init',runId:activeRunId,worldId,seed,layout:activeLayout,config,playing,simulationRate});
 }
 function drawSensor(s) {
   if(sensorImage)sensorContext.putImageData(sensorImage,0,0);
@@ -154,8 +173,123 @@ function drawSensor(s) {
   $('sensor-status').textContent=s.vision?`${s.vision.inFootprint} corners · ${s.vision.shared} shared · ${s.vision.processingMs.toFixed(0)} ms`:'Waiting for camera';
 }
 function setView(mode) {
+  if(editing && mode!=='top')mode='top';
   viewMode=mode;renderer.setViewMode(mode);
   for(const [id,value]of [['orbit-button','orbit'],['top-button','top'],['fpv-button','fpv']])$(id).setAttribute('aria-pressed',String(mode===value));
+}
+function editorTargetKey(target) { return target ? `${target.type}:${target.id}` : ''; }
+function editorTargetFromSelection() {
+  const select=$('world-editor-object');
+  const key=select?.value||editorTargetKey(selectedEditTarget);
+  return (renderer?.getEditTargets?.()||[]).find(target=>editorTargetKey(target)===key)||null;
+}
+function setEditorError(message='') {
+  const error=$('world-edit-error');
+  if(error){error.textContent=message;error.hidden=!message;}
+  const status=$('world-edit-status');
+  if(status&&message)status.textContent=message;
+}
+function syncEditorCoordinates(target=editorTargetFromSelection()) {
+  if(!target)return;
+  selectedEditTarget=target;
+  const select=$('world-editor-object');if(select&&select.value!==editorTargetKey(target))select.value=editorTargetKey(target);
+  const x=$('world-edit-x'),y=$('world-edit-y');
+  if(x)x.value=Number(target.x).toFixed(1);if(y)y.value=Number(target.y).toFixed(1);
+  const title=$('world-edit-selection');if(title)title.textContent=`${target.label} · ${target.type}`;
+}
+function syncEditorTargets() {
+  const select=$('world-editor-object');
+  const targets=renderer?.getEditTargets?.()||[];
+  if(select){
+    const selected=selectedEditTarget?editorTargetKey(selectedEditTarget):select.value;
+    select.replaceChildren();
+    targets.forEach(target=>{const option=document.createElement('option');option.value=editorTargetKey(target);option.textContent=`${target.label} (${target.type})`;select.append(option);});
+    if(targets.length){const target=targets.find(item=>editorTargetKey(item)===selected)||targets[0];select.value=editorTargetKey(target);syncEditorCoordinates(target);}
+  }
+  const empty=$('world-edit-empty');if(empty)empty.hidden=targets.length!==0;
+  const apply=$('world-edit-apply');if(apply)apply.disabled=!targets.length;
+}
+function editorValidationMessage(result) {
+  if(result===true||result===undefined||result===null)return '';
+  if(result===false)return 'That position is not safe for this world.';
+  if(typeof result==='string')return result;
+  if(typeof result==='object') {
+    if(result.valid===false||result.ok===false||result.success===false) {
+      const detail=result.message||result.reason||result.error||result.errors?.[0];
+      return String(detail||'That position is not safe for this world.');
+    }
+  }
+  return '';
+}
+function previewWorldEdit(target,candidate) {
+  selectedEditTarget=target;
+  syncEditorCoordinates({...target,...candidate});
+  const status=$('world-edit-status');if(status)status.textContent=`Preview ${target.label}: ${candidate.x.toFixed(1)}, ${candidate.y.toFixed(1)}`;
+  setEditorError('');
+}
+function commitWorldEdit(target,candidate) {
+  if(!target||!candidate||Math.hypot(Number(candidate.x)-Number(target.x),Number(candidate.y)-Number(target.y))<0.01){renderer?.clearEditPreview?.(target);syncEditorCoordinates(target);return;}
+  const currentWorld=renderer?.world||createWorld(worldId,seed,worldLayouts.get(worldId)||{});
+  const currentLayout=worldLayouts.has(worldId)?worldLayouts.get(worldId):(currentWorld?.layout||{});
+  let nextLayout;
+  try { nextLayout=updatedLayout(currentWorld,currentLayout, {...candidate,type:target.type,id:target.id}); }
+  catch(error) { renderer?.clearEditPreview?.(target); setEditorError(error.message||'That edit could not be applied.'); return; }
+  let candidateWorld;
+  try { candidateWorld=createWorld(worldId,seed,nextLayout); }
+  catch(error) { renderer?.clearEditPreview?.(target); setEditorError(error.message||'That edit could not be applied.'); return; }
+  let validation;
+  try { validation=validateWorldLayout(candidateWorld,config); }
+  catch(error) { validation={valid:false,message:error.message||'That edit could not be applied.'}; }
+  const message=editorValidationMessage(validation);
+  if(message) {
+    renderer?.clearEditPreview?.(target);
+    syncEditorCoordinates(target);
+    setEditorError(message);
+    return;
+  }
+  worldLayouts.set(worldId,structuredCloneSafe(nextLayout));
+  const resume=editingResumePlaying;
+  finishWorldEditor(true);
+  restart(resume);
+}
+function finishWorldEditor(committed=false) {
+  if(!editing)return;
+  const priorView=editingPriorView,priorKnowledge=editingPriorKnowledge;
+  editing=false;selectedEditTarget=null;renderer?.setEditMode(false);
+  const toggle=$('world-edit-toggle');if(toggle){toggle.checked=false;toggle.setAttribute('aria-pressed','false');}
+  const panel=$('world-editor');if(panel)panel.hidden=true;
+  const panelBody=panel?.closest('.panel-body');
+  if(panelBody)requestAnimationFrame(()=>{if(!editing)panelBody.scrollTop=editingPriorPanelScroll;});
+  setMapView(priorKnowledge);
+  setView(priorView);
+  const status=$('world-edit-status');if(status)status.textContent=committed?'World layout applied.':'World layout unchanged.';
+  setEditorError('');
+  if(!committed)setPlaying(!document.hidden&&editingResumePlaying);
+}
+function enterWorldEditor() {
+  if(editing||!renderer)return;
+  editing=true;editingResumePlaying=playing;editingPriorView=viewMode;editingPriorKnowledge=$('knowledge-toggle').checked;
+  const existingPanel=$('world-editor')?.closest('.panel-body');
+  editingPriorPanelScroll=existingPanel?.scrollTop||0;
+  setPlaying(false);
+  // Handles are truth geometry. Temporarily lift robot-map fog and FPV, then
+  // restore both choices when the editor closes.
+  setMapView(false);setView('top');syncEditorTargets();
+  const panel=$('world-editor');
+  if(panel){
+    panel.hidden=false;
+    requestAnimationFrame(()=>{if(editing)panel.scrollIntoView({block:'nearest',inline:'nearest'});});
+  }
+  const toggle=$('world-edit-toggle');if(toggle){toggle.checked=true;toggle.setAttribute('aria-pressed','true');}
+  const status=$('world-edit-status');if(status)status.textContent='Drag a handle or edit its coordinates.';
+  renderer.setEditMode(true,{onPreview:previewWorldEdit,onCommit:commitWorldEdit,onCancel:(target)=>{renderer.clearEditPreview(target);syncEditorCoordinates(target);}});
+  syncEditorTargets();
+}
+function restoreWorldLayout() {
+  const resume=editing?editingResumePlaying:playing;
+  if(editing)finishWorldEditor(false);
+  worldLayouts.delete(worldId);
+  restart(resume);
 }
 function chart(canvas,history,column,limit,color) {
   const dpr=Math.min(devicePixelRatio||1,2),rect=canvas.getBoundingClientRect();
@@ -195,12 +329,24 @@ for(const [id,key]of controls) {
 }
 $('world-select').addEventListener('change',e=>{worldId=e.target.value;restart();});
 $('simulation-rate-input').addEventListener('input',event=>setSimulationRate(event.target.value));
-$('play-button').addEventListener('click',()=>setPlaying(!playing));$('reset-button').addEventListener('click',restart);
-$('defaults-button').addEventListener('click',()=>{config={...DEFAULT_CONFIG};setSimulationRate(1);restart();});
+$('play-button').addEventListener('click',()=>setPlaying(!playing));$('reset-button').addEventListener('click',()=>restart());
+$('defaults-button').addEventListener('click',()=>{config={...DEFAULT_CONFIG};setSimulationRate(DEFAULT_SIMULATION_RATE);worldLayouts.delete(worldId);restart();});
 $('gatekeeper-toggle').addEventListener('change',e=>{config.gatekeeper=e.target.checked;restart();});
-$('failure-reset').addEventListener('click',restart);$('initialization-reset').addEventListener('click',restart);
+$('failure-reset').addEventListener('click',()=>restart());$('initialization-reset').addEventListener('click',()=>restart());
 $('top-button').addEventListener('click',()=>setView('top'));$('fpv-button').addEventListener('click',()=>setView('fpv'));$('orbit-button').addEventListener('click',()=>setView('orbit'));$('view-button').addEventListener('click',()=>{setView('orbit');renderer.resetView();});
+if($('world-edit-toggle'))$('world-edit-toggle').addEventListener('change',event=>event.target.checked?enterWorldEditor():finishWorldEditor(false));
+if($('world-edit-close'))$('world-edit-close').addEventListener('click',()=>finishWorldEditor(false));
+if($('world-edit-cancel'))$('world-edit-cancel').addEventListener('click',()=>finishWorldEditor(false));
+if($('world-edit-restore'))$('world-edit-restore').addEventListener('click',restoreWorldLayout);
+if($('world-editor-object'))$('world-editor-object').addEventListener('change',()=>syncEditorCoordinates());
+if($('world-edit-apply'))$('world-edit-apply').addEventListener('click',()=>{
+  const target=editorTargetFromSelection(),x=Number($('world-edit-x')?.value),y=Number($('world-edit-y')?.value);
+  if(!target||!Number.isFinite(x)||!Number.isFinite(y)){setEditorError('Enter finite X and Y coordinates.');return;}
+  commitWorldEdit(target,{x,y});
+});
+for(const id of ['world-edit-x','world-edit-y'])if($(id))$(id).addEventListener('keydown',event=>{if(event.key==='Enter')$('world-edit-apply')?.click();});
 function setMapView(mapped) {
+  if(editing)mapped=false;
   $('knowledge-toggle').checked=mapped;
   $('truth-view-button').setAttribute('aria-pressed',String(!mapped));
   $('mapped-view-button').setAttribute('aria-pressed',String(mapped));
@@ -210,8 +356,9 @@ function setMapView(mapped) {
 $('knowledge-toggle').addEventListener('change',e=>setMapView(e.target.checked));
 $('truth-view-button').addEventListener('click',()=>setMapView(false));
 $('mapped-view-button').addEventListener('click',()=>setMapView(true));
-document.addEventListener('visibilitychange',()=>{if(document.hidden){if(!pageSuspended)visiblePlaying=playing;setPlaying(false);}else if(!pageSuspended&&visiblePlaying)setPlaying(true);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(!pageSuspended)visiblePlaying=playing;setPlaying(false);}else if(!pageSuspended&&!editing&&visiblePlaying)setPlaying(true);});
 window.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&editing){event.preventDefault();finishWorldEditor(false);return;}
   if(event.repeat||event.ctrlKey||event.metaKey||event.altKey||/INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName))return;
   if(event.code==='Space'){event.preventDefault();setPlaying(!playing);}
   else if(event.key.toLowerCase()==='r')restart();
@@ -220,6 +367,6 @@ window.addEventListener('keydown',event=>{
   else if(event.key.toLowerCase()==='v'){setView('orbit');renderer.resetView();}
 });
 window.addEventListener('pagehide',event=>{if(event.persisted){pageSuspended=true;if(!document.hidden)visiblePlaying=playing;setPlaying(false);return;}worker?.terminate();worker=null;pageSuspended=false;renderer?.dispose();});
-window.addEventListener('pageshow',event=>{if(!event.persisted||!pageSuspended)return;pageSuspended=false;if(!document.hidden&&visiblePlaying)setPlaying(true);});
-window.__budgetDemo={getState:()=>lastSnapshot,getConfig:()=>({...config}),getMode:()=>config.gatekeeper?'gatekeeper':'nominal',getDiagnostics:()=>({...renderer?.getDiagnostics?.(),viewMode}),getLifecycle:()=>({runId,playing,pageSuspended,workerActive:Boolean(worker),simulationRate}),setView,reset:restart,setWorld:id=>{worldId=id;$('world-select').value=id;restart();},setConfig:values=>{config={...config,...values};config.gatekeeper=config.gatekeeper!==false;restart();}};
+window.addEventListener('pageshow',event=>{if(!event.persisted||!pageSuspended)return;pageSuspended=false;if(!document.hidden&&!editing&&visiblePlaying)setPlaying(true);});
+window.__budgetDemo={getState:()=>lastSnapshot,getConfig:()=>({...config}),getMode:()=>config.gatekeeper?'gatekeeper':'nominal',getDiagnostics:()=>({...renderer?.getDiagnostics?.(),viewMode,editing}),getLifecycle:()=>({runId,playing,pageSuspended,workerActive:Boolean(worker),simulationRate,editing}),getWorldLayout:()=>structuredCloneSafe(worldLayouts.get(worldId)||{}),getLayoutTargets:()=>renderer?.getEditTargets?.()||[],getEditTargetScreenPosition:target=>renderer?.getEditTargetScreenPosition?.(target)||null,setView,reset:restart,setWorld:id=>{worldId=id;$('world-select').value=id;restart();},setConfig:values=>{config={...config,...values};config.gatekeeper=config.gatekeeper!==false;restart();},enterWorldEditor,exitWorldEditor:()=>finishWorldEditor(false),restoreWorldLayout};
 updateControls();updateModeIndicator(config.gatekeeper);restart();

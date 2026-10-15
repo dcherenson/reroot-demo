@@ -204,12 +204,28 @@ export class DemoRenderer {
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
     this._pointerDown = null;
+    this.editMode = false;
+    this.editTargets = [];
+    this.editHandles = new Map();
+    this.editSelection = null;
+    this.editPreview = null;
+    this._editDrag = null;
+    this._editCallbacks = {};
     this._onPointerDown = (event) => {
       this._pointerDown = { x: event.clientX, y: event.clientY };
+      this._onEditPointerDown(event);
     };
+    this._onPointerMove = (event) => this._onEditPointerMove(event);
+    this._onPointerUp = (event) => this._onEditPointerUp(event);
+    this._onPointerCancel = (event) => this._cancelEditDrag(event);
+    this._onWindowBlur = () => this._cancelEditDrag();
     this._onClick = (event) => this._inspectAt(event);
-    canvas.addEventListener('pointerdown', this._onPointerDown, { passive: true });
+    canvas.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+    canvas.addEventListener('pointermove', this._onPointerMove, { passive: false });
+    canvas.addEventListener('pointerup', this._onPointerUp, { passive: false });
+    canvas.addEventListener('pointercancel', this._onPointerCancel, { passive: false });
     canvas.addEventListener('click', this._onClick, { passive: true });
+    window.addEventListener('blur', this._onWindowBlur, { passive: true });
     this._onResize = () => this.resize();
     window.addEventListener('resize', this._onResize, { passive: true });
     this.resize();
@@ -237,9 +253,15 @@ export class DemoRenderer {
     this.sceneryGroup = new THREE.Group();
     this.markerGroup = new THREE.Group();
     this.zoneGroup = new THREE.Group();
+    // Editing affordances stay separate from semantic markers.  The sensor
+    // pass hides this group explicitly so a handle can never become a camera
+    // feature or occluder.
+    this.editGroup = new THREE.Group();
+    this.editGroup.name = 'world-edit-affordances';
+    this.editGroup.visible = false;
     this.pathGroup = new THREE.Group();
     this.flightGroup = new THREE.Group();
-    this.worldGroup.add(this.sceneryGroup, this.zoneGroup, this.markerGroup, this.pathGroup, this.flightGroup);
+    this.worldGroup.add(this.sceneryGroup, this.zoneGroup, this.markerGroup, this.editGroup, this.pathGroup, this.flightGroup);
 
     this.terrain = null;
     this.terrainMaterial = null;
@@ -251,6 +273,11 @@ export class DemoRenderer {
     this.landmarkVisuals = [];
     this.landmarkObjects = new Map();
     this.zoneVisuals = [];
+    this.editHandles = new Map();
+    this.editTargets = [];
+    this.editSelection = null;
+    this.editPreview = null;
+    this._editDrag = null;
     this.crowdVisuals = [];
     this.buildingLabels = [];
     this.vegetationModels = null;
@@ -374,8 +401,230 @@ export class DemoRenderer {
     this._createDynamicGroups();
   }
 
+  _normalizeEditTarget(target, index = 0) {
+    if (!target || !['landmark', 'zone', 'mountain'].includes(String(target.type))) return null;
+    const type = String(target.type);
+    const id = safeId(target.id, `${type}-${index}`);
+    return {
+      ...target,
+      type,
+      id,
+      label: target.label || target.title || id,
+      x: finite(target.x),
+      y: finite(target.y),
+      bounds: target.bounds && typeof target.bounds === 'object' ? { ...target.bounds } : null,
+    };
+  }
+
+  _makeEditHandle(target, index) {
+    const colors = { landmark: 0x5be6dd, zone: 0xf07466, mountain: 0xb7c1bc };
+    const group = new THREE.Group();
+    group.name = `world-edit-handle-${target.type}-${target.id}`;
+    group.userData = { type: target.type, id: target.id, editTarget: target };
+    const ringMaterial = this._makeMaterial(new THREE.MeshBasicMaterial({
+      color: colors[target.type] || 0xffffff, transparent: true, opacity: .9, depthWrite: false, depthTest: false,
+    }));
+    const ring = this._makeMesh(new THREE.TorusGeometry(3.2, .34, 8, 24), ringMaterial);
+    ring.rotation.x = Math.PI / 2;
+    ring.renderOrder = 18;
+    ring.userData = group.userData;
+    const pinMaterial = this._makeMaterial(new THREE.MeshBasicMaterial({
+      color: colors[target.type] || 0xffffff, transparent: true, opacity: .98, depthWrite: false, depthTest: false,
+    }));
+    const pin = this._makeMesh(new THREE.SphereGeometry(1.3, 12, 8), pinMaterial);
+    pin.position.y = .55;
+    pin.renderOrder = 19;
+    pin.userData = group.userData;
+    group.add(ring, pin);
+    this.editGroup.add(group);
+    this.editHandles.set(`${target.type}:${target.id}`, { target, group, ring, pin, index });
+    return group;
+  }
+
+  _positionEditHandle(entry, x = entry.target.x, y = entry.target.y, preview = false) {
+    if (!entry?.group) return;
+    const point = this._mapPosition(x, y, .38, true);
+    entry.group.position.copy(point);
+    entry.group.userData.preview = Boolean(preview);
+  }
+
+  _clearEditPreview() {
+    if (!this.editPreview) return;
+    this.editPreview.visible = false;
+    this.editPreview.userData = {};
+    this.editPreviewData = null;
+  }
+
+  _buildEditHandles() {
+    if (!this.editGroup) return;
+    this.editHandles.forEach(({ group }) => this._clearObject(group));
+    this.editHandles.clear();
+    this._clearEditPreview();
+    this.editTargets.forEach((target, index) => {
+      const group = this._makeEditHandle(target, index);
+      this._positionEditHandle({ group, target }, target.x, target.y);
+    });
+    this.editGroup.visible = this.editMode;
+  }
+
+  /** Replace the target list used by edit mode without rebuilding the world. */
+  setEditTargets(targets = []) {
+    const normalized = arrayLike(targets).map((target, index) => this._normalizeEditTarget(target, index)).filter(Boolean);
+    const current = this.editTargets.map((target) => `${target.type}:${target.id}`).join('|');
+    const next = normalized.map((target) => `${target.type}:${target.id}`).join('|');
+    this.editTargets = normalized;
+    if (current !== next || this.editHandles.size !== normalized.length) this._buildEditHandles();
+    else normalized.forEach((target) => {
+      const entry = this.editHandles.get(`${target.type}:${target.id}`);
+      if (entry) { entry.target = target; entry.group.userData.editTarget = target; this._positionEditHandle(entry, target.x, target.y); }
+    });
+    return this.getEditTargets();
+  }
+
+  getEditTargets() {
+    return this.editTargets.map((target) => ({ ...target, bounds: target.bounds ? { ...target.bounds } : undefined }));
+  }
+
+  getEditTargetScreenPosition(target) {
+    const candidate = typeof target === 'string'
+      ? this.editTargets.find((item) => `${item.type}:${item.id}` === target)
+      : target;
+    if (!candidate || !this.camera) return null;
+    this.camera.updateMatrixWorld(true);
+    const point = this._mapPosition(candidate.x, candidate.y, .38, true).project(this.camera);
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: rect.left + (point.x + 1) * rect.width / 2, y: rect.top + (-point.y + 1) * rect.height / 2 };
+  }
+
+  _editPointer(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return false;
+    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    return true;
+  }
+
+  _editTargetHit(event) {
+    if (!this._editPointer(event)) return null;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hits = this.raycaster.intersectObjects([this.editGroup], true);
+    const hit = hits.find((item) => item.object?.userData?.editTarget);
+    return hit?.object?.userData?.editTarget || null;
+  }
+
+  _editCoordinate(event) {
+    if (!this._editPointer(event)) return null;
+    // Edit mode is forced into a top-down or orbit truth view. A horizontal
+    // plane gives stable coordinates even over a sloped terrain surface; the
+    // candidate is sampled against the real terrain only after commit.
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const point = new THREE.Vector3();
+    if (!this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), point)) return null;
+    const x = point.x + positive(this.world?.width, 220) / 2;
+    const y = positive(this.world?.height, 180) / 2 - point.z;
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  }
+
+  _editCandidate(raw, drag) {
+    if (!raw || !drag?.pointerStart) return raw || drag?.candidate || drag?.start || null;
+    return {
+      x: drag.start.x + raw.x - drag.pointerStart.x,
+      y: drag.start.y + raw.y - drag.pointerStart.y,
+    };
+  }
+
+  _setEditPreview(target, candidate) {
+    if (!target || !candidate) return;
+    const entry = this.editHandles.get(`${target.type}:${target.id}`);
+    if (entry) {
+      this._positionEditHandle(entry, candidate.x, candidate.y, true);
+      entry.group.userData.preview = true;
+    }
+    if (!this.editPreview) {
+      const material = this._makeMaterial(new THREE.MeshBasicMaterial({ color: 0xffe07b, transparent: true, opacity: .8, depthWrite: false, depthTest: false }));
+      this.editPreview = this._makeMesh(new THREE.SphereGeometry(2.1, 12, 8), material);
+      this.editPreview.name = 'world-edit-preview';
+      this.editPreview.renderOrder = 20;
+      this.editGroup.add(this.editPreview);
+    }
+    this.editPreview.position.copy(this._mapPosition(candidate.x, candidate.y, .8, true));
+    this.editPreview.visible = true;
+    this.editPreview.userData = { type: target.type, id: target.id, x: candidate.x, y: candidate.y, preview: true };
+    this.editPreviewData = { ...candidate };
+  }
+
+  _onEditPointerDown(event) {
+    if (!this.editMode || event.button !== undefined && event.button !== 0) return;
+    const target = this._editTargetHit(event);
+    if (!target) return;
+    const start = { x: target.x, y: target.y };
+    const pointerStart = this._editCoordinate(event);
+    this._editDrag = { target, pointerId: event.pointerId, start, pointerStart, candidate: start };
+    this.editSelection = target;
+    this._clearEditPreview();
+    this.controls.enabled = false;
+    try { this.canvas.setPointerCapture(event.pointerId); } catch (_error) { /* capture can fail in test DOMs */ }
+    this._editCallbacks.onStart?.(target, start);
+    event.preventDefault?.();
+  }
+
+  _onEditPointerMove(event) {
+    if (!this.editMode || !this._editDrag || (event.pointerId !== undefined && event.pointerId !== this._editDrag.pointerId)) return;
+    const candidate = this._editCandidate(this._editCoordinate(event), this._editDrag);
+    if (!candidate) return;
+    this._editDrag.candidate = candidate;
+    this._setEditPreview(this._editDrag.target, candidate);
+    this._editCallbacks.onPreview?.(this._editDrag.target, candidate);
+    event.preventDefault?.();
+  }
+
+  _onEditPointerUp(event) {
+    if (!this.editMode || !this._editDrag || (event.pointerId !== undefined && event.pointerId !== this._editDrag.pointerId)) return;
+    const drag = this._editDrag;
+    const candidate = this._editCandidate(this._editCoordinate(event), drag) || drag.candidate || drag.start;
+    this._editDrag = null;
+    try { this.canvas.releasePointerCapture(event.pointerId); } catch (_error) { /* already released */ }
+    this._editCallbacks.onCommit?.(drag.target, candidate);
+    event.preventDefault?.();
+  }
+
+  _cancelEditDrag(event) {
+    if (!this._editDrag) return;
+    const drag = this._editDrag;
+    this._editDrag = null;
+    const pointerId = event?.pointerId ?? drag.pointerId;
+    if (pointerId !== undefined && pointerId !== null) {
+      try { this.canvas.releasePointerCapture(pointerId); } catch (_error) { /* already released */ }
+    }
+    this._clearEditPreview();
+    this.editSelection = null;
+    this._editCallbacks.onCancel?.(drag.target, drag.start);
+  }
+
+  setEditMode(enabled, callbacks = {}) {
+    const next = Boolean(enabled);
+    if (!next) this._cancelEditDrag();
+    this.editMode = next;
+    this._editCallbacks = next && callbacks && typeof callbacks === 'object' ? callbacks : {};
+    if (this.editGroup) this.editGroup.visible = next;
+    this.controls.enabled = !next && this.viewMode !== 'fpv';
+    if (next) this.setViewMode('top');
+    if (!next) { this.editSelection = null; this._clearEditPreview(); }
+    return this.editMode;
+  }
+
+  clearEditPreview(target = this.editSelection) {
+    if (target) {
+      const entry = this.editHandles.get(`${target.type}:${target.id}`);
+      if (entry) { entry.target = { ...entry.target, x: finite(target.x), y: finite(target.y) }; this._positionEditHandle(entry, entry.target.x, entry.target.y, false); entry.group.userData.preview = false; }
+    }
+    this._clearEditPreview();
+    return this.getEditTargets();
+  }
+
   setWorld(world) {
     if (this._disposed) return;
+    this.setEditMode(false);
     this.snapshot = null;
     this.knowledge = null;
     this.displayCameraYaw=null;
@@ -1905,7 +2154,8 @@ export class DemoRenderer {
   }
 
   setViewMode(mode = 'orbit') {
-    const next = ['orbit', 'top', 'fpv'].includes(mode) ? mode : 'orbit';
+    const requested = ['orbit', 'top', 'fpv'].includes(mode) ? mode : 'orbit';
+    const next = this.editMode ? 'top' : requested;
     const previousMode = this.viewMode;
     if (next !== 'fpv' && this.viewMode === 'fpv' && this.drone?.userData?.airframe) {
       this.drone.userData.airframe.visible = this._airframeVisibleBeforeFpv !== false;
@@ -1921,7 +2171,7 @@ export class DemoRenderer {
       this._updateFpvCamera();
     } else {
       this.camera = this.orbitCamera;
-      this.controls.enabled = true;
+      this.controls.enabled = !this.editMode;
       this.controls.maxPolarAngle = next === 'top' ? Math.PI / 2.01 : Math.PI * .485;
       if (next === 'top') this._setTopDownCamera();
       else if (previousMode !== 'orbit') this._setOrbitCamera();
@@ -1939,12 +2189,36 @@ export class DemoRenderer {
     this.controls.update();
   }
 
+  _editViewport() {
+    const canvasRect = this.canvas.getBoundingClientRect();
+    let left = canvasRect.left;
+    let right = canvasRect.right;
+    const railInset = canvasRect.width * .75;
+    const intersectsCanvas = (rect) => rect && rect.bottom > canvasRect.top && rect.top < canvasRect.bottom;
+    const leftRail = document.querySelector('.left-rail')?.getBoundingClientRect?.();
+    const rightRail = document.querySelector('.right-rail')?.getBoundingClientRect?.();
+    // Desktop rails float over the scene at their natural width. On the
+    // stacked mobile layout they span the canvas, so retain the full width
+    // rather than treating the whole page as a side inset.
+    if (intersectsCanvas(leftRail) && leftRail.width < railInset && leftRail.right > canvasRect.left) left = Math.max(left, leftRail.right);
+    if (intersectsCanvas(rightRail) && rightRail.width < railInset && rightRail.left < canvasRect.right) right = Math.min(right, rightRail.left);
+    if (right - left < canvasRect.width * .2) { left = canvasRect.left; right = canvasRect.right; }
+    return { canvasRect, left, right, width: Math.max(1, right - left) };
+  }
+
   _setTopDownCamera() {
     const width = positive(this.world?.width, 220);
     const height = positive(this.world?.height, 180);
-    const distance = Math.max(height, width / this.orbitCamera.aspect) / (2 * Math.tan(this.orbitCamera.fov * Math.PI / 360)) * 1.1 + this._flightAltitude();
-    this.orbitCamera.position.set(0, distance, 0.01);
-    this.controls.target.set(0, 0, 0);
+    const viewport = this.editMode ? this._editViewport() : null;
+    const availableWidth = viewport?.width || this.canvas.clientWidth || 1;
+    const canvasHeight = viewport?.canvasRect.height || this.canvas.clientHeight || 1;
+    const horizontalWorld = width * canvasHeight / availableWidth;
+    const distance = Math.max(height, horizontalWorld) / (2 * Math.tan(this.orbitCamera.fov * Math.PI / 360)) * 1.1 + this._flightAltitude();
+    const screenOffset = viewport ? ((viewport.left + viewport.right) / 2) - (viewport.canvasRect.left + viewport.canvasRect.right) / 2 : 0;
+    const worldPerPixel = (2 * Math.tan(this.orbitCamera.fov * Math.PI / 360) * Math.max(1, distance - this._flightAltitude())) / canvasHeight;
+    const centerOffset = -screenOffset * worldPerPixel;
+    this.orbitCamera.position.set(centerOffset, distance, 0.01);
+    this.controls.target.set(centerOffset, 0, 0);
     this.controls.update();
   }
 
@@ -1957,6 +2231,10 @@ export class DemoRenderer {
   }
 
   resetView() {
+    if (this.editMode) {
+      this.setViewMode('top');
+      return;
+    }
     this.setViewMode('orbit');
     this._setOrbitCamera();
   }
@@ -1970,6 +2248,7 @@ export class DemoRenderer {
     this.orbitCamera.updateProjectionMatrix();
     this.fpvCamera.aspect = width / height;
     this.fpvCamera.updateProjectionMatrix();
+    if (this.editMode) this._setTopDownCamera();
     [...Object.values(this.paths || {}), this.orbitPath].filter(Boolean).forEach(path => resizeThickLine(path, width, height));
   }
 
@@ -2065,7 +2344,7 @@ export class DemoRenderer {
     const previousClearColor = new THREE.Color();
     renderer.getClearColor(previousClearColor);
     const previousClearAlpha = renderer.getClearAlpha();
-    const hiddenGroups = [this.zoneGroup, this.markerGroup, this.pathGroup, this.flightGroup];
+    const hiddenGroups = [this.zoneGroup, this.markerGroup, this.editGroup, this.pathGroup, this.flightGroup];
     const groupVisibility = hiddenGroups.map((group) => group?.visible);
     const graphics = [this.worldBorder, this.planningGrid];
     const graphicsVisibility = graphics.map((object) => object?.visible);
@@ -2147,6 +2426,7 @@ export class DemoRenderer {
   }
 
   _inspectAt(event) {
+    if (this.editMode) return;
     if (this._pointerDown) {
       const moved = Math.hypot(event.clientX - this._pointerDown.x, event.clientY - this._pointerDown.y);
       if (moved > 5) return;
@@ -2186,6 +2466,9 @@ export class DemoRenderer {
       mappedFeatures: this.featurePoints?.geometry?.drawRange?.count || 0,
       landmarksVisible: this.landmarkVisuals.filter((item) => item.group.visible).length,
       zonesVisible: this.zoneVisuals.filter((item) => item.outline.visible).length,
+      editMode: this.editMode,
+      editTargets: this.editTargets.length,
+      editSelection: this.editSelection ? `${this.editSelection.type}:${this.editSelection.id}` : null,
       knowledgeView: this.knowledgeView,
       lastTime: this._lastTime,
     };
@@ -2194,9 +2477,14 @@ export class DemoRenderer {
   dispose() {
     if (this._disposed) return;
     this._disposed = true;
+    this._cancelEditDrag();
     this.canvas.removeEventListener('pointerdown', this._onPointerDown);
+    this.canvas.removeEventListener('pointermove', this._onPointerMove);
+    this.canvas.removeEventListener('pointerup', this._onPointerUp);
+    this.canvas.removeEventListener('pointercancel', this._onPointerCancel);
     this.canvas.removeEventListener('click', this._onClick);
     window.removeEventListener('resize', this._onResize);
+    window.removeEventListener('blur', this._onWindowBlur);
     this.controls.dispose();
     if (this._animationFrame && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(this._animationFrame);
     this._clearObject(this.worldGroup);

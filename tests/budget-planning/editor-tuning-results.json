@@ -1,0 +1,796 @@
+{
+  "date": "2026-10-15",
+  "scope": "Tucson trailhead tuning, default 5x playback, and world layout editor",
+  "baselineCommit": "7e36f290be404357ee53b6197eeb8343a28e5e53",
+  "baselineTucson": {
+    "successTime": 791.2000000000429,
+    "simulatedSeconds": 840.000000000054,
+    "fault": null,
+    "phaseCounts": {
+      "orbit": 1,
+      "nominal": 2338,
+      "backup": 1617,
+      "goal-orbit": 245
+    },
+    "nodes": 1882,
+    "roots": 16
+  },
+  "tuning": {
+    "landmarkId": "tucson-overlook",
+    "from": [
+      181,
+      43
+    ],
+    "to": [
+      165,
+      35
+    ],
+    "note": "Moves the physical trailhead and plaza; does not change planner constraints, default dynamics, or sensor settings."
+  },
+  "tucsonDefault": {
+    "worldId": "tucson",
+    "seed": 1337,
+    "config": {
+      "budget": 5,
+      "minFeatures": 6,
+      "speed": 10,
+      "radius": 10,
+      "gatekeeper": true,
+      "horizontalFov": 90,
+      "sensingRange": 75,
+      "downwardPitch": 55
+    },
+    "requestedSteps": 9000,
+    "completedSteps": 9000,
+    "simulatedSeconds": 1800.0000000002722,
+    "successTime": 176.7999999999985,
+    "goalReached": true,
+    "fault": null,
+    "failure": null,
+    "phaseCounts": {
+      "orbit": 1,
+      "nominal": 578,
+      "backup": 305,
+      "goal-orbit": 8117
+    },
+    "nodes": 534,
+    "roots": 20,
+    "maxBudget": 2.2200000000000015,
+    "maxError": 2.2799999999999883,
+    "firstDepartureTime": 4.000000000000001,
+    "trail": {
+      "count": 3000,
+      "capacity": 3000,
+      "dataLength": 12000,
+      "byteLength": 48000,
+      "maxCount": 3000,
+      "finalCount": 3000
+    },
+    "history": {
+      "count": 1500,
+      "capacity": 1500,
+      "dataLength": 6000,
+      "byteLength": 24000,
+      "maxCount": 1500,
+      "finalCount": 1500
+    },
+    "maxMapCount": 1000,
+    "orbitStatus": [
+      {
+        "id": "tucson-home",
+        "radius": 18.40312423743285,
+        "active": true,
+        "certified": true,
+        "unclearedSamples": 0
+      },
+      {
+        "id": "tucson-pass",
+        "radius": 18.02079728939615,
+        "active": true,
+        "certified": true,
+        "unclearedSamples": 0
+      },
+      {
+        "id": "tucson-overlook",
+        "radius": 17.65685424949238,
+        "active": true,
+        "certified": true,
+        "unclearedSamples": 0
+      },
+      {
+        "id": "tucson-wash-crossing",
+        "radius": 19.21110255092798,
+        "active": true,
+        "certified": true,
+        "unclearedSamples": 0
+      },
+      {
+        "id": "tucson-garden",
+        "radius": 17.315072906367327,
+        "active": false,
+        "certified": false,
+        "unclearedSamples": 19
+      },
+      {
+        "id": "tucson-goal",
+        "radius": 30,
+        "active": true,
+        "certified": true,
+        "unclearedSamples": 0
+      }
+    ],
+    "memory": {
+      "samplePeriodSeconds": 300,
+      "samples": [
+        {
+          "simulatedSeconds": 0,
+          "reason": "initial",
+          "usedHeapBytes": 7620436,
+          "totalHeapBytes": 8388608,
+          "backingStorageBytes": 24451739,
+          "embedderHeapUsedBytes": 2281176,
+          "heapSizeLimitBytes": null
+        },
+        {
+          "simulatedSeconds": 300.1999999999915,
+          "reason": "interval",
+          "usedHeapBytes": 9800060,
+          "totalHeapBytes": 11534336,
+          "backingStorageBytes": 24579652,
+          "embedderHeapUsedBytes": 2218512,
+          "heapSizeLimitBytes": null
+        },
+        {
+          "simulatedSeconds": 600.1999999999995,
+          "reason": "interval",
+          "usedHeapBytes": 9741688,
+          "totalHeapBytes": 10485760,
+          "backingStorageBytes": 24580192,
+          "embedderHeapUsedBytes": 1904864,
+          "heapSizeLimitBytes": null
+        },
+        {
+          "simulatedSeconds": 900.0000000000676,
+          "reason": "interval",
+          "usedHeapBytes": 9797672,
+          "totalHeapBytes": 11010048,
+          "backingStorageBytes": 24580792,
+          "embedderHeapUsedBytes": 1914976,
+          "heapSizeLimitBytes": null
+        },
+        {
+          "simulatedSeconds": 1200.0000000001357,
+          "reason": "interval",
+          "usedHeapBytes": 10055056,
+          "totalHeapBytes": 10747904,
+          "backingStorageBytes": 24580696,
+          "embedderHeapUsedBytes": 2154584,
+          "heapSizeLimitBytes": null
+        },
+        {
+          "simulatedSeconds": 1500.000000000204,
+          "reason": "interval",
+          "usedHeapBytes": 10013480,
+          "totalHeapBytes": 10747904,
+          "backingStorageBytes": 24580756,
+          "embedderHeapUsedBytes": 2140792,
+          "heapSizeLimitBytes": null
+        },
+        {
+          "simulatedSeconds": 1800.0000000002722,
+          "reason": "interval",
+          "usedHeapBytes": 9858812,
+          "totalHeapBytes": 10747904,
+          "backingStorageBytes": 24580480,
+          "embedderHeapUsedBytes": 1947040,
+          "heapSizeLimitBytes": null
+        }
+      ],
+      "errors": []
+    },
+    "finalResources": {
+      "world": "tucson",
+      "objects": 4,
+      "drawCalls": 169,
+      "triangles": 990655,
+      "geometries": 160,
+      "textures": 11,
+      "mappedFeatures": 1000,
+      "landmarksVisible": 6,
+      "zonesVisible": 3,
+      "knowledgeView": false,
+      "lastTime": 1800.0000000002722
+    },
+    "assertions": {
+      "assertGoal": true,
+      "assertSafe": false,
+      "assertFail": false,
+      "passed": true,
+      "errors": []
+    },
+    "backupSeconds": 61.0
+  },
+  "tucsonBudget1": {
+    "worldId": "tucson",
+    "seed": 1337,
+    "config": {
+      "budget": 1,
+      "minFeatures": 6,
+      "speed": 10,
+      "radius": 10,
+      "gatekeeper": true,
+      "horizontalFov": 90,
+      "sensingRange": 75,
+      "downwardPitch": 55
+    },
+    "requestedSteps": 600,
+    "completedSteps": 600,
+    "simulatedSeconds": 120.00000000000117,
+    "successTime": null,
+    "goalReached": false,
+    "fault": null,
+    "failure": null,
+    "phaseCounts": {
+      "orbit": 1,
+      "nominal": 344,
+      "backup": 256
+    },
+    "nodes": 455,
+    "roots": 12,
+    "maxBudget": 0.9000000000000004,
+    "maxError": 0.96,
+    "firstDepartureTime": 12.399999999999988,
+    "trail": {
+      "count": 601,
+      "capacity": 3000,
+      "dataLength": 12000,
+      "byteLength": 48000,
+      "maxCount": 601,
+      "finalCount": 601
+    },
+    "history": {
+      "count": 601,
+      "capacity": 1500,
+      "dataLength": 6000,
+      "byteLength": 24000,
+      "maxCount": 601,
+      "finalCount": 601
+    },
+    "maxMapCount": 831,
+    "orbitStatus": [
+      {
+        "id": "tucson-home",
+        "radius": 14.403124237432849,
+        "active": true,
+        "certified": true,
+        "unclearedSamples": 0
+      },
+      {
+        "id": "tucson-pass",
+        "radius": 14.020797289396148,
+        "active": true,
+        "certified": true,
+        "unclearedSamples": 0
+      },
+      {
+        "id": "tucson-overlook",
+        "radius": 13.65685424949238,
+        "active": true,
+        "certified": true,
+        "unclearedSamples": 0
+      },
+      {
+        "id": "tucson-wash-crossing",
+        "radius": 15.21110255092798,
+        "active": false,
+        "certified": false,
+        "unclearedSamples": 68
+      },
+      {
+        "id": "tucson-garden",
+        "radius": 13.315072906367325,
+        "active": false,
+        "certified": false,
+        "unclearedSamples": 72
+      },
+      {
+        "id": "tucson-goal",
+        "radius": 30,
+        "active": false,
+        "certified": false,
+        "unclearedSamples": 72
+      }
+    ],
+    "memory": null,
+    "finalResources": {
+      "world": "tucson",
+      "objects": 4,
+      "drawCalls": 170,
+      "triangles": 963403,
+      "geometries": 160,
+      "textures": 11,
+      "mappedFeatures": 831,
+      "landmarksVisible": 6,
+      "zonesVisible": 3,
+      "knowledgeView": false,
+      "lastTime": 120.00000000000117
+    },
+    "assertions": {
+      "assertGoal": false,
+      "assertSafe": true,
+      "assertFail": false,
+      "passed": true,
+      "errors": []
+    },
+    "backupSeconds": 51.2
+  },
+  "provenance": "Rendered-image probes in Chromium/Metal. Long runs used tuned geometry before the layout editor was integrated. Main verified exact generated-world equality after editor integration and reran the Tucson mission regression. The older acceptance-results.json retains the full three-world terrain baseline.",
+  "limitations": [
+    "Custom layouts can prevent goal completion. Only footprint bounds and the home orbit are checked by the editor; runtime gatekeeper and actual-flight monitors remain active.",
+    "These mission and memory results are scenario measurements, not proofs for every layout or slider combination."
+  ],
+  "resetMemory": {
+    "iterations": 100,
+    "includesVisibleEditHandles": true,
+    "samples": [
+      {
+        "iteration": 10,
+        "heap": 10917112,
+        "backingStorage": 16930370,
+        "renderer": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 273,
+          "triangles": 173967,
+          "geometries": 187,
+          "textures": 9,
+          "mappedFeatures": 57,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "editMode": true,
+          "editTargets": 6,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 20,
+        "heap": 10733532,
+        "backingStorage": 21823998,
+        "renderer": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 188,
+          "triangles": 943503,
+          "geometries": 178,
+          "textures": 11,
+          "mappedFeatures": 52,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "editMode": true,
+          "editTargets": 12,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 30,
+        "heap": 12067796,
+        "backingStorage": 17423350,
+        "renderer": {
+          "world": "ann-arbor",
+          "objects": 4,
+          "drawCalls": 203,
+          "triangles": 190961,
+          "geometries": 192,
+          "textures": 11,
+          "mappedFeatures": 93,
+          "landmarksVisible": 5,
+          "zonesVisible": 3,
+          "editMode": true,
+          "editTargets": 8,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 40,
+        "heap": 11466712,
+        "backingStorage": 16930370,
+        "renderer": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 273,
+          "triangles": 173967,
+          "geometries": 187,
+          "textures": 9,
+          "mappedFeatures": 57,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "editMode": true,
+          "editTargets": 6,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 50,
+        "heap": 10632456,
+        "backingStorage": 21823998,
+        "renderer": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 188,
+          "triangles": 943503,
+          "geometries": 178,
+          "textures": 11,
+          "mappedFeatures": 52,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "editMode": true,
+          "editTargets": 12,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 60,
+        "heap": 11110204,
+        "backingStorage": 17423350,
+        "renderer": {
+          "world": "ann-arbor",
+          "objects": 4,
+          "drawCalls": 203,
+          "triangles": 190961,
+          "geometries": 192,
+          "textures": 11,
+          "mappedFeatures": 93,
+          "landmarksVisible": 5,
+          "zonesVisible": 3,
+          "editMode": true,
+          "editTargets": 8,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 70,
+        "heap": 11728080,
+        "backingStorage": 16930370,
+        "renderer": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 273,
+          "triangles": 173967,
+          "geometries": 187,
+          "textures": 9,
+          "mappedFeatures": 57,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "editMode": true,
+          "editTargets": 6,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 80,
+        "heap": 10744516,
+        "backingStorage": 21823998,
+        "renderer": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 188,
+          "triangles": 943503,
+          "geometries": 178,
+          "textures": 11,
+          "mappedFeatures": 52,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "editMode": true,
+          "editTargets": 12,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 90,
+        "heap": 10994620,
+        "backingStorage": 17423350,
+        "renderer": {
+          "world": "ann-arbor",
+          "objects": 4,
+          "drawCalls": 203,
+          "triangles": 190961,
+          "geometries": 192,
+          "textures": 11,
+          "mappedFeatures": 93,
+          "landmarksVisible": 5,
+          "zonesVisible": 3,
+          "editMode": true,
+          "editTargets": 8,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      },
+      {
+        "iteration": 100,
+        "heap": 11876348,
+        "backingStorage": 16930370,
+        "renderer": {
+          "world": "farm",
+          "objects": 4,
+          "drawCalls": 273,
+          "triangles": 173967,
+          "geometries": 187,
+          "textures": 9,
+          "mappedFeatures": 57,
+          "landmarksVisible": 4,
+          "zonesVisible": 2,
+          "editMode": true,
+          "editTargets": 6,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 0,
+          "viewMode": "top",
+          "editing": true
+        }
+      }
+    ],
+    "passed": true
+  },
+  "integratedTucsonRegression": {
+    "kind": "pixel-mission-suite",
+    "mode": "sequential-browser-child-processes",
+    "baseUrl": "http://127.0.0.1:4180",
+    "worlds": [
+      "tucson"
+    ],
+    "goal": {
+      "steps": 1200,
+      "simulatedSeconds": 240,
+      "reportPeriod": 100,
+      "memory": true,
+      "assertGoal": true
+    },
+    "safeBudgetOne": {
+      "steps": 600,
+      "simulatedSeconds": 120,
+      "reportPeriod": 100,
+      "budget": 1,
+      "assertSafe": true
+    },
+    "limits": {
+      "features": 1000,
+      "nodes": 4000,
+      "trails": 3000,
+      "history": 1500,
+      "retainedHeapDeltaBytes": 2097152
+    },
+    "summaries": [
+      {
+        "world": "tucson",
+        "mode": "goal",
+        "requestedSteps": 1200,
+        "completedSteps": 1200,
+        "simulatedSeconds": 239.9999999999949,
+        "successTime": 176.7999999999985,
+        "backupSeconds": 61,
+        "goalReached": true,
+        "fault": null,
+        "error": null,
+        "maxBudget": 2.2200000000000015,
+        "maxError": 2.2799999999999883,
+        "peakError": 2.2799999999999883,
+        "maxFeatures": 1000,
+        "maxNodes": 534,
+        "bounded": {
+          "features": {
+            "observedMax": 1000,
+            "limit": 1000,
+            "passed": true
+          },
+          "nodes": {
+            "observedMax": 534,
+            "limit": 4000,
+            "passed": true
+          },
+          "trails": {
+            "observedMax": 1201,
+            "limit": 3000,
+            "backingDataLength": 12000,
+            "backingByteLength": 48000,
+            "passed": true
+          },
+          "history": {
+            "observedMax": 1201,
+            "limit": 1500,
+            "backingDataLength": 6000,
+            "backingByteLength": 24000,
+            "passed": true
+          }
+        },
+        "nodeGrowthAfterGoal": {
+          "sampleCount": 5,
+          "firstPostGoalNodes": 534,
+          "lastPostGoalNodes": 534,
+          "stopped": true
+        },
+        "rendererUpdates": 13,
+        "finalResources": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 169,
+          "triangles": 969067,
+          "geometries": 160,
+          "textures": 11,
+          "mappedFeatures": 1000,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "editMode": false,
+          "editTargets": 0,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 239.9999999999949
+        },
+        "memory": {
+          "samplePeriodSeconds": 300,
+          "sampleCount": 2,
+          "postWarmupSampleCount": 0,
+          "retainedHeapDeltaBytes": null,
+          "retainedHeapDeltaLimitBytes": 2097152,
+          "compared": false,
+          "passed": true,
+          "reason": "quick run did not reach two post-warmup samples"
+        }
+      },
+      {
+        "world": "tucson",
+        "mode": "safe-budget-1",
+        "requestedSteps": 600,
+        "completedSteps": 600,
+        "simulatedSeconds": 120.00000000000117,
+        "successTime": null,
+        "backupSeconds": 51.2,
+        "goalReached": false,
+        "fault": null,
+        "error": null,
+        "maxBudget": 0.9000000000000004,
+        "maxError": 0.96,
+        "peakError": 0.96,
+        "maxFeatures": 831,
+        "maxNodes": 455,
+        "bounded": {
+          "features": {
+            "observedMax": 831,
+            "limit": 1000,
+            "passed": true
+          },
+          "nodes": {
+            "observedMax": 455,
+            "limit": 4000,
+            "passed": true
+          },
+          "trails": {
+            "observedMax": 601,
+            "limit": 3000,
+            "backingDataLength": 12000,
+            "backingByteLength": 48000,
+            "passed": true
+          },
+          "history": {
+            "observedMax": 601,
+            "limit": 1500,
+            "backingDataLength": 6000,
+            "backingByteLength": 24000,
+            "passed": true
+          }
+        },
+        "nodeGrowthAfterGoal": null,
+        "rendererUpdates": 7,
+        "finalResources": {
+          "world": "tucson",
+          "objects": 4,
+          "drawCalls": 170,
+          "triangles": 963403,
+          "geometries": 160,
+          "textures": 11,
+          "mappedFeatures": 831,
+          "landmarksVisible": 6,
+          "zonesVisible": 3,
+          "editMode": false,
+          "editTargets": 0,
+          "editSelection": null,
+          "knowledgeView": false,
+          "lastTime": 120.00000000000117
+        },
+        "memory": null
+      }
+    ],
+    "errors": [],
+    "passed": true
+  },
+  "checks": {
+    "unit": {
+      "passed": 96,
+      "failed": 0,
+      "command": "npm test"
+    },
+    "browser": {
+      "passed": 72,
+      "failed": 0,
+      "projects": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "files": [
+        "world-editor.spec.js",
+        "demo.spec.js",
+        "simulation-rate.spec.js",
+        "deployment.spec.js",
+        "failure-mode.spec.js"
+      ]
+    },
+    "resetMemory": {
+      "passed": true,
+      "resets": 100,
+      "project": "chromium",
+      "file": "stress.spec.js"
+    },
+    "build": {
+      "passed": true,
+      "command": "npm run build"
+    },
+    "review": "Main agent reviewed actual source diffs, core geometry/knowledge tests, browser output, desktop and compact editor screenshots, rendered-image mission reports, and reset/long-loiter memory samples."
+  },
+  "reviewedRuntimeSha256": {
+    "index.html": "afad87b72938944adc61e054c99cdee53e99f6ea0abf9e22cc6bd3729fd9f2bc",
+    "assets/budget-planning/demo.css": "a580bc9c8e435e53109d1a1d822e784832d4b471ba205165d6bd26d082c0e386",
+    "assets/budget-planning/app.js": "9c3da44bf24b3173fc61f1410d08a53f2a427b8cde9dde5b293565f86c28dd61",
+    "assets/budget-planning/dubins.js": "15181e6702f52dcb7eeced996812ca335514d02ef2762a0af619625cf8baf91b",
+    "assets/budget-planning/knowledge.js": "37adda5f8bac7d849012ef5e934c3bf7c99a39e581cfc6482f3af07c2a163735",
+    "assets/budget-planning/landmark-models.js": "aa3cefa63df7a19cdd5753f8be9e9d0107f0e989aae828b39f8ee36bfb358e18",
+    "assets/budget-planning/pixel-features.js": "ad60b12990df01845f20167b7cf6824ba06ad4958b49cfcab936921ec62e9b14",
+    "assets/budget-planning/planner.js": "1d06e18d4d4f386b7c1a655c179f27055df5dc0648378aae2f98a25d60aa3d1d",
+    "assets/budget-planning/renderer.js": "55151a6f8ffc4afba7809406fef24200dff5a637ea30eb87385f3185a26e9506",
+    "assets/budget-planning/scenery-models.js": "ad7d006e7572b54fed3e88358436288d793fad412de2a60324f87538838ec57b",
+    "assets/budget-planning/sensor-camera.js": "9f29ae754ad2f64f25a204603cd6e24ed58b73b52fac62adb56e88859b95efe4",
+    "assets/budget-planning/simulation.js": "9a63cd8af162f678aae6a115f1b37c15b506a10f5e2a351e84650a1f1e1ccb13",
+    "assets/budget-planning/terrain-geometry.js": "f80188e776c273b3f0456624a5c361f1b3307c8816cf5deb3a9466266c0cf53a",
+    "assets/budget-planning/terrain-materials.js": "3b69e146cca3474842ebe8da87b4de0e5c177fab5ddfd4672eba2be9e5771d5d",
+    "assets/budget-planning/thick-lines.js": "885e78437f6e0f7b9912fe57e3e9dbaf367ef4eb67a13ab426ec290d85e42856",
+    "assets/budget-planning/vegetation-models.js": "0e7febe6292ff411bbfc5339c6988a48896e1df4cc54abf1a8049796bec28472",
+    "assets/budget-planning/vision.js": "2e08d8223f2b0b0350c08670764d648fb1fe687aea6d7ade24ce1f5dc26495da",
+    "assets/budget-planning/worker.js": "f532aab137bd057f17a6694809dcc6413f3a026f26300ee286ecfe1b06812890",
+    "assets/budget-planning/world-layout.js": "a758a0c574f8355f66dd4690c31537f16067879ef39d6dee024f9317d5e2ab9f",
+    "assets/budget-planning/worlds.js": "ce44601062fa6705aaab96f2d6a6443141788af16b06279781db8972472be642"
+  }
+}

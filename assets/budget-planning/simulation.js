@@ -1,4 +1,5 @@
 import { createWorld, worldCollision, inZone } from './worlds.js';
+import { validateWorldLayout } from './world-layout.js';
 import { shortestPath, samplePaths, prefixPaths, pathLength, curvatureOnPaths, integrate, seededRandom, angleDiff } from './dubins.js';
 import { ReRoot, gatekeeper } from './planner.js';
 import { Knowledge, CELL } from './knowledge.js';
@@ -39,9 +40,9 @@ const overlap = (a,b) => { const seen = new Set(a); let n=0; for(const i of b) i
 const now = () => globalThis.performance?.now() ?? Date.now();
 
 export class Simulation {
-  constructor(worldId = 'farm', rawConfig = {}, seed = 1337, {pixelFeatures=false}={}) {
+  constructor(worldId = 'farm', rawConfig = {}, seed = 1337, {pixelFeatures=false,layout={}}={}) {
     this.pixelFeatures=pixelFeatures;this.initialized=false;this.pendingSensor=null;this.sensorObservation=null;
-    this.config = validateConfig(rawConfig); this.world = createWorld(worldId, seed); this.seed = seed;
+    this.config = validateConfig(rawConfig); this.world = createWorld(worldId, seed, layout); validateWorldLayout(this.world, this.config); this.seed = seed;
     this.knowledge = new Knowledge(this.world, this.config,{pixelFeatures}); this.knowledge.surveyHome();
     this.rng = seededRandom(seed ^ 0x17ad38); this.errorDirection = this.rng()*Math.PI*2;
     const home = this.world.landmarks[0]; const r = this.knowledge.orbitRadius(home);

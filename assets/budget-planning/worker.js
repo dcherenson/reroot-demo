@@ -1,15 +1,16 @@
 import { Simulation } from './simulation.js';
 import { LiveFeatureMap } from './vision.js';
 const BASE_TICK_MS=200;
+const DEFAULT_SIMULATION_RATE=5;
 let simulation=null,vision=null,playing=false,timer=null,awaiting=false,pendingFrame=null,runId=0,sequence=0,requestId=0;
-let simulationRate=1,tickStartedAt=null,nextTickAt=null,scheduledForNextCycle=false;
+let simulationRate=DEFAULT_SIMULATION_RATE,tickStartedAt=null,nextTickAt=null,scheduledForNextCycle=false;
 let imageBuffers={},failed=false;
 const buffers=new Map();
 const arrayKeys=['mappedFeatureIds','visibleFeatureIds','featurePositions','sensorKeypoints','treeEdges','treeColors','nominal','committedNominal','backup','trail','history'];
-function normalizeSimulationRate(value) {
+function normalizeSimulationRate(value, fallback=1) {
   let numeric;
-  try {numeric=Number(value);}catch {return 1;}
-  return Number.isFinite(numeric)?Math.min(10,Math.max(1,numeric)):1;
+  try {numeric=Number(value);}catch {return fallback;}
+  return Number.isFinite(numeric)?Math.min(10,Math.max(1,numeric)):fallback;
 }
 function tickInterval() {return BASE_TICK_MS/simulationRate;}
 function pack(snapshot) {
@@ -59,8 +60,8 @@ onmessage=event=>{
   const m=event.data;
   if(m.type==='init') {
     clearTimer();runId=m.runId;awaiting=false;pendingFrame=null;playing=false;buffers.clear();sequence=0;requestId=0;imageBuffers={};failed=false;
-    simulationRate=normalizeSimulationRate(m.simulationRate);tickStartedAt=null;nextTickAt=null;scheduledForNextCycle=false;
-    try {simulation=new Simulation(m.worldId,m.config,m.seed,{pixelFeatures:true});vision=new LiveFeatureMap(simulation.world,simulation.config);playing=m.playing!==false;requestSensor();}
+    simulationRate=normalizeSimulationRate(m.simulationRate,DEFAULT_SIMULATION_RATE);tickStartedAt=null;nextTickAt=null;scheduledForNextCycle=false;
+    try {simulation=new Simulation(m.worldId,m.config,m.seed,{pixelFeatures:true,layout:m.layout||{}});vision=new LiveFeatureMap(simulation.world,simulation.config);playing=m.playing!==false;requestSensor();}
     catch(error){report(error);}
   } else if(m.runId===runId&&m.type==='sensor-frame'&&m.requestId===pendingFrame) {
     try {

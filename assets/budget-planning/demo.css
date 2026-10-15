@@ -507,6 +507,20 @@ body.budget-demo {
 .toggle-row input:checked ~ .toggle-track { background: var(--orange); }
 .toggle-row input:checked ~ .toggle-track span { transform: translateX(15px); }
 
+.world-editor { margin-top: 12px; padding: 10px; background: rgba(12, 27, 33, .36); border: 1px solid rgba(183, 215, 208, .2); border-radius: 4px; }
+.world-editor h2 { margin: 0 0 5px; color: #dce9e3; font-size: 11px; font-weight: 760; }
+.world-editor .field-label { display: block; margin-top: 10px; }
+.world-editor .select-input { width: 100%; margin-top: 5px; }
+.world-edit-selection { min-height: 13px; margin: 6px 0 0; color: #b9d7ce; font-size: 9px; line-height: 1.3; }
+.world-edit-coordinates { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 8px; }
+.world-edit-coordinates label { color: #9eb8b2; font-size: 9px; }
+.world-edit-coordinates input { width: 100%; box-sizing: border-box; height: 27px; margin-top: 4px; padding: 4px 6px; color: #eff8f0; background: rgba(221, 235, 230, .1); border: 1px solid rgba(183, 215, 208, .28); border-radius: 3px; font: 11px var(--ui-font); font-variant-numeric: tabular-nums; }
+.world-edit-actions { margin-top: 9px; }
+.world-edit-actions .button { min-height: 29px; padding: 0 8px; font-size: 9px; }
+.world-edit-status { margin: 8px 0 0; color: #a8c1b9; font-size: 9px; line-height: 1.35; }
+.world-edit-error { margin: 6px 0 0; padding: 6px 7px; color: #ffd5c8; background: rgba(211, 73, 62, .16); border: 1px solid rgba(230, 89, 74, .48); border-radius: 3px; font-size: 9px; line-height: 1.35; }
+.world-edit-toggle-row { margin-top: 8px; }
+
 .gatekeeper-toggle-row { margin-top: 0; }
 .gatekeeper-help { margin-top: 7px; }
 .mode-indicator {

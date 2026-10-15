@@ -61,7 +61,7 @@ executed overlap is checked against actual image matches. Semantic landmark
 recognition is idealized, as is the exact yaw and terrain model.
 
 Each world starts at a physical localization landmark: the red gambrel barnhouse
-in the farm, the tall, many-armed Old Sentinel saguaro in Tucson, and the Ford
+in the farm, the tall, many-armed saguaro in Tucson, and the Ford
 Robotics Building in Ann Arbor. The fixed-wing UAV begins in a surveyed orbit
 around that landmark. Other free space is certified through the sensor.
 Every localization landmark has a distinctive model, an anchored ring, and a
@@ -116,9 +116,11 @@ other no-fly zones are scenario restrictions, not an airspace map.
   The right-side Simulation rate slider changes the target wall-clock cadence
   from 200 ms (1×) to 20 ms (10×), without changing the 0.2 s simulated step,
   0.02 s dynamics substeps, or sensing/planning frequencies in simulated time.
-  Rate changes apply live and preserve pause state. Overruns start a fresh cycle
+  Playback starts at 5×. Rate changes apply live and preserve pause state. Overruns start a fresh cycle
   after validation and acknowledgment; they never queue catch-up steps.
-- `renderer.js` / `app.js`: view-only interaction, local Three.js scene, controls,
+- `world-layout.js`: bounded position overrides, linked stadium/crowd-zone
+  movement, geometry rebuilding, and starting-orbit validation.
+- `renderer.js` / `app.js`: local Three.js scene, view and layout controls,
   inspection, and charts.
 - `scenery-models.js`: procedural stadium, Ford Robotics Building, and Michigan
   Medicine rooftop helipad.
@@ -190,6 +192,23 @@ the sensor camera. `F` selects first person, `T` selects top-down, `V` resets th
 viewer, `Space` pauses, and `R` restarts. Parameter changes restart with the same
 seed. All UI text and generated scene labels use the same system sans-serif
 font stack. The first-person camera and smoothed roll are visual only.
+
+**Edit world** pauses simulation and selects a top-down truth view. Drag a colored
+handle to move a landmark, no-fly zone, or Tucson mountain, or select the object
+and enter coordinates. A valid placement restarts the mission with the same seed,
+tuning, and prior playback state. The prior camera and map view are restored.
+Layouts are retained separately for each world for the page session. Restore
+world layout clears the current world's edits; Restore defaults also resets its
+tuning and playback rate. Cancel or Escape closes the editor without applying a
+preview. Ordinary camera dragging never edits the layout.
+
+Layout overrides are applied before terrain triangulation, object elevation,
+and feature generation. The renderer and worker receive identical overrides.
+Stadium and crowd-zone positions are linked, while the restriction remains
+unknown to the robot until sensed. An edit cannot grant map knowledge. Footprints
+must stay inside the world and the starting orbit must remain valid, including
+camera visibility. Other placements can obstruct progress or make the goal
+unreachable; the editor does not claim to establish mission feasibility.
 
 ## Sources and licenses
 
@@ -289,6 +308,26 @@ pause/resume, restart persistence, defaults, responsive layout, and deployment
 paths. The main agent reviewed the worker diff and desktop/mobile screenshots.
 The terrain revision's long mission and memory runs were not repeated for this
 pacing/UI-only change; physics, planning, and sensing modules are unchanged.
+
+The subsequent editor/tuning revision moves Tucson's trailhead from (181, 43)
+to (165, 35), where the full exterior orbit can be surveyed sooner. The default
+mission now reaches the goal after 176.8 simulated seconds, including 61.0 seconds
+of verified backup flight, versus 791.2 seconds before this change. The tuned
+mission completed 30 simulated minutes without a fault; post-warmup retained
+heap changed by 58,752 bytes and typed-array backing storage remained stable.
+The integrated editor reproduced that goal time, and the 1 m budget check stayed
+safe for 120 simulated seconds while producing different return behavior.
+
+The final revision passed 96 unit checks, 72 targeted browser checks across
+Chromium, Firefox, and WebKit, and the static build. The main agent reviewed the
+implementation diffs, editor screenshots, and actual mission/memory results.
+
+A hundred alternating resets, each rendering the editor handles, retained stable
+per-world GPU counts (178–192 geometries and 9–11 textures) and identical per-world
+backing-storage sizes. Cancelled previews reuse their geometry. The current
+measurements, test scope, and reviewed source hashes are recorded separately in
+`tests/budget-planning/editor-tuning-results.json`; earlier three-world results
+remain in the terrain baseline report.
 
 These scenario checks do not prove feasibility or safety for every setting.
 Future descriptor availability is a geometric prediction; actual image overlap

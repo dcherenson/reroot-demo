@@ -14,6 +14,7 @@
  */
 
 import { sampleTucsonCatalinaHeight, sampleAnnArborCampusHeight, sampleAnnArborWestFarmHeight } from '../terrain/ground-elevation.js';
+import { applyWorldLayout } from './world-layout.js';
 
 export const WORLD_WIDTH = 320;
 export const WORLD_HEIGHT = 230;
@@ -554,10 +555,10 @@ function addTucsonGeometry(world) {
     { kind: 'tower', style: 'landmark-saguaro', width: 10, depth: 8, height: 16 });
   addLandmarkObject(world, { id: 'tucson-pass', label: 'Rock', x: 92, y: 61, kind: 'pass' },
     { kind: 'rock', style: 'landmark-rock-spire', width: 9, depth: 8, height: 10 });
-  // A marked overlook on the traversable side of the central ridge gives
-  // the northern pass its own online localization site.
-  addObject(world, { kind: 'plaza', x: 181, y: 43, width: 7, depth: 6, height: 0.15, color: '#d0a06e' });
-  addLandmarkObject(world, { id: 'tucson-overlook', label: 'Trailhead', x: 181, y: 43, kind: 'overlook' },
+  // Set the trailhead back from the ridge so its full exterior orbit can be
+  // observed on approach to the northern pass. It remains unknown at launch.
+  addObject(world, { kind: 'plaza', x: 165, y: 35, width: 7, depth: 6, height: 0.15, color: '#d0a06e' });
+  addLandmarkObject(world, { id: 'tucson-overlook', label: 'Trailhead', x: 165, y: 35, kind: 'overlook' },
     { kind: 'tower', style: 'landmark-lookout', width: 8, depth: 8, height: 7 });
   addLandmarkObject(world, { id: 'tucson-wash-crossing', label: 'Wash footbridge', x: 244, y: 108, kind: 'crossing' },
     { kind: 'building', style: 'landmark-bridge', width: 12, depth: 8, height: 4 });
@@ -871,7 +872,7 @@ function generateFeatures(world) {
  * @param {'farm'|'tucson'|'ann-arbor'} id
  * @param {number|string} seed
  */
-export function createWorld(id = 'farm', seed = 1337) {
+export function createWorld(id = 'farm', seed = 1337, layout = {}) {
   const normalizedId = normalizeWorldId(id);
   const normalizedSeed = hashSeed(seed);
   const spec = SPECS[normalizedId];
@@ -899,6 +900,7 @@ export function createWorld(id = 'farm', seed = 1337) {
   if (normalizedId === 'farm') addFarmGeometry(world);
   else if (normalizedId === 'tucson') addTucsonGeometry(world);
   else addAnnArborGeometry(world);
+  applyWorldLayout(world, layout);
   // Construct one bounded triangle surface at runtime. Planning and rendering
   // sample the same vertices/diagonal, including the compressed DEM ridges.
   const spacing = normalizedId === 'tucson' ? 1 : 2;
