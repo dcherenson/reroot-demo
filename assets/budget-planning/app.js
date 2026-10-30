@@ -30,6 +30,7 @@ function clearInitializationError() {
   if($('initialization-error-message'))$('initialization-error-message').textContent='';
 }
 function showInitializationError(message='The planning worker could not start.') {
+  worker?.terminate();worker=null;
   clearFailureAlert();
   const alert=$('initialization-error');
   if(alert)alert.hidden=false;
@@ -128,6 +129,10 @@ function stopForFailure(snapshot) {
   $('phase-label').textContent='Fault';
 }
 function restart(resumePlaying = playing) {
+  try { startMission(resumePlaying); }
+  catch(error) { showInitializationError(`World initialization failed: ${error.message}`); }
+}
+function startMission(resumePlaying) {
   if(!renderer){showInitializationError('3D rendering is unavailable. Enable WebGL 2 and reload the page.');return;}
   if(editing){resumePlaying=editingResumePlaying;finishWorldEditor(false);}
   worker?.terminate();worker=null;runId++;const activeRunId=runId;lastSnapshot=null;pageSuspended=false;$('play-button').disabled=false;$('play-button').removeAttribute('aria-disabled');clearFailureAlert();clearInitializationError();sensorImage=null;sensorContext.clearRect(0,0,320,240);
@@ -140,6 +145,7 @@ function restart(resumePlaying = playing) {
   activeWorker.onmessage=event=>{
     const m=event.data;if(m.runId!==undefined&&m.runId!==runId)return;
     if(worker!==activeWorker||(m.runId!==undefined&&m.runId!==activeRunId))return;
+    try {
     if(m.type==='error') {showInitializationError(m.message||'Simulation worker failed.');if(m.stack)console.error(m.stack);return;}
     if(m.type==='sensor') {
       try {
@@ -159,6 +165,7 @@ function restart(resumePlaying = playing) {
     for(const key of ['cells','observed'])if(s.knowledge?.[key]){returned[key]=s.knowledge[key].buffer;transfers.push(returned[key]);}
     activeWorker.postMessage({type:'ack',runId:activeRunId,sequence:s.sequence,buffers:returned},transfers);
     if(s.failure||s.fault||s.phase==='fault')stopForFailure(s);
+    } catch(error) { showInitializationError(`Scene update failed: ${error.message}`); }
   };
   activeWorker.onerror=e=>{if(worker!==activeWorker||runId!==activeRunId)return;showInitializationError(e.message||'Simulation worker failed.');};
   activeWorker.postMessage({type:'init',runId:activeRunId,worldId,seed,layout:activeLayout,config,playing,simulationRate});

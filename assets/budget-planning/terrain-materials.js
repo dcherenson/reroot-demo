@@ -181,22 +181,36 @@ function loadOneTexture(loader, key) {
   if (!canLoadBrowserTexture()) return Promise.resolve(null);
   const url = TERRAIN_ASSET_URLS[key];
   return new Promise((resolve) => {
+    let settled = false;
+    const finish = (texture, error) => {
+      // Keep the sensor scene deterministic if an image arrives after fallback.
+      if (settled) { texture?.dispose(); return; }
+      settled = true;
+      clearTimeout(timeout);
+      if (error) console.warn(`Terrain texture ${key} could not be loaded.`, error);
+      resolve(texture);
+    };
+    const timeout = setTimeout(() => finish(null, new Error('Texture download timed out.')), 10_000);
     try {
       loader.load(url.href, (texture) => {
-        configureTexture(texture);
-        // Store the linear mean once on the source texture. Per-world clones
-        // reuse the value as a uniform and never create another canvas.
-        texture.userData.terrainMeanColor = imageMeanLinear(texture.image);
-        resolve(texture);
+        if (settled) { texture.dispose(); return; }
+        try {
+          configureTexture(texture);
+          // Store the linear mean once on the source texture. Per-world clones
+          // reuse the value as a uniform and never create another canvas.
+          texture.userData.terrainMeanColor = imageMeanLinear(texture.image);
+          finish(texture);
+        } catch (error) {
+          texture.dispose();
+          finish(null, error);
+        }
       }, undefined, (error) => {
         // A missing local asset should degrade to the material's color rather
         // than leaving the application import or sensor stream pending.
-        console.warn(`Terrain texture ${key} could not be loaded.`, error);
-        resolve(null);
+        finish(null, error);
       });
     } catch (error) {
-      console.warn(`Terrain texture ${key} could not be loaded.`, error);
-      resolve(null);
+      finish(null, error);
     }
   });
 }
@@ -211,7 +225,7 @@ async function loadSourceTextures() {
 /*
  * The top-level await makes a browser import deterministic: the first terrain
  * material is created only after all four local maps have either loaded or
- * reported a recoverable error.  In Node (where document is absent) this is
+ * reported a recoverable error or timed out. In Node (where document is absent) this is
  * an immediate empty result, which keeps geometry-only unit tests loader-free.
  */
 export const terrainAssetsReady = loadSourceTextures();

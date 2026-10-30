@@ -119,6 +119,8 @@ body.budget-demo {
 
 .budget-demo .loading-overlay[hidden] { display: none !important; }
 
+.loading-overlay .startup-message { max-width: 26rem; margin: 0 24px; text-align: center; }
+
 .loading-overlay.is-ready { opacity: 0; visibility: hidden; pointer-events: none; }
 
 .loader-ring {
