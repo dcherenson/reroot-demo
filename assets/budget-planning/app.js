@@ -5,7 +5,7 @@ import { getLayoutTargets, updatedLayout, validateWorldLayout } from './world-la
 const $=id=>document.getElementById(id);
 const DEFAULT_CONFIG={...DEFAULTS,gatekeeper:DEFAULTS.gatekeeper!==false};
 const DEFAULT_SIMULATION_RATE=5;
-let worker=null,runId=0,playing=!document.hidden,visiblePlaying=true,config={...DEFAULT_CONFIG},worldId='farm',renderer,lastSnapshot=null,pageSuspended=false,simulationRate=DEFAULT_SIMULATION_RATE;
+let worker=null,runId=0,playing=!document.hidden,visiblePlaying=true,config={...DEFAULT_CONFIG},worldId=$('world-select').value,renderer,lastSnapshot=null,pageSuspended=false,simulationRate=DEFAULT_SIMULATION_RATE;
 const controls=[['budget','budget'],['features','minFeatures'],['speed','speed'],['radius','radius'],['fov','horizontalFov'],['range','sensingRange'],['pitch','downwardPitch']];
 const CONTROL_UNITS={budget:' m',speed:' m/s',radius:' m',fov:'°',range:' m',pitch:'°'};
 const seed=1337;

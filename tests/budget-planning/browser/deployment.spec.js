@@ -16,6 +16,8 @@ test('packaged site and module worker load under a GitHub Pages project prefix',
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await expect(page.locator('#initialization-error')).toBeHidden();
   const state = await page.evaluate(() => window.__budgetDemo.getState());
+  expect(state.worldId).toBe('tucson');
+  await expect(page.locator('#world-select')).toHaveValue('tucson');
   expect(state.fault).toBeNull();
   expect(state.sensor).toEqual({ horizontalFov: 90, sensingRange: 75, downwardPitch: 55 });
   expect(requests).toContain('/_site/assets/budget-planning/worker.js');

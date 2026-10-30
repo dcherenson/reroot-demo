@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+async function loadFarm(page) {
+  await page.goto('/budget-planning.html');
+  await page.waitForFunction(() => window.__budgetDemo?.getState() !== null && window.__budgetDemo?.getState() !== undefined);
+  await page.locator('#world-select').selectOption('farm');
+  await page.waitForFunction(() => window.__budgetDemo?.getState()?.worldId === 'farm');
+}
+
 async function enterEditor(page) {
   // Use the visible label: the accessible checkbox itself is intentionally
   // one pixel wide, and Firefox positions it beneath the label text.
@@ -8,7 +15,7 @@ async function enterEditor(page) {
 }
 
 test('world editor exposes editable targets and preserves a paused intent', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await page.locator('#play-button').click();
   await expect(page.locator('#play-button')).toHaveText(/Run mission|Play/);
@@ -33,7 +40,7 @@ test('world editor exposes editable targets and preserves a paused intent', asyn
 });
 
 test('world editor rejects an outside coordinate without restarting the worker', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await enterEditor(page);
   const before = await page.evaluate(() => ({ runId: window.__budgetDemo.getLifecycle().runId, layout: window.__budgetDemo.getWorldLayout() }));
@@ -47,7 +54,7 @@ test('world editor rejects an outside coordinate without restarting the worker',
 });
 
 test('world editor rejects an unsafe home placement without changing the layout', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await enterEditor(page);
   await page.locator('#world-editor-object').selectOption('landmark:farm-home');
@@ -76,7 +83,7 @@ test('world editor commits an in-bounds coordinate and keeps worker geometry in 
     };
     window.Worker.prototype = NativeWorker.prototype;
   });
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await enterEditor(page);
   const options = await page.locator('#world-editor-object option').evaluateAll(items => items.map(item => ({ value: item.value, text: item.textContent })));
@@ -98,7 +105,7 @@ test('world editor commits an in-bounds coordinate and keeps worker geometry in 
 });
 
 test('world editor accepts a pointer drag on a highlighted handle', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await enterEditor(page);
   const targets = await page.evaluate(() => window.__budgetDemo.getLayoutTargets());
@@ -116,7 +123,7 @@ test('world editor accepts a pointer drag on a highlighted handle', async ({ pag
 });
 
 test('clicking an edit handle without moving it does not restart the mission', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await enterEditor(page);
   const point = await page.evaluate(() => window.__budgetDemo.getEditTargetScreenPosition('landmark:farm-goal'));
@@ -131,7 +138,7 @@ test('clicking an edit handle without moving it does not restart the mission', a
 });
 
 test('world editor accepts pointer drags for an NFZ and a mountain', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
 
   const dragTarget = async (targetKey) => {
@@ -157,7 +164,7 @@ test('world editor accepts pointer drags for an NFZ and a mountain', async ({ pa
 });
 
 test('world layout persists across reset and restores authored defaults', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await enterEditor(page);
   await page.locator('#world-editor-object').selectOption('landmark:farm-goal');
@@ -181,7 +188,7 @@ test('world layout persists across reset and restores authored defaults', async 
 });
 
 test('cancelled previews reuse renderer resources', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await enterEditor(page);
   const target = 'landmark:farm-goal';
@@ -207,7 +214,7 @@ test('cancelled previews reuse renderer resources', async ({ page }) => {
 });
 
 test('editor temporarily uses truth top-down and restores FPV/map choices', async ({ page }) => {
-  await page.goto('/budget-planning.html');
+  await loadFarm(page);
   await page.waitForFunction(() => window.__budgetDemo?.getState()?.vision?.frameCount > 1);
   await page.locator('#fpv-button').click();
   await page.locator('#mapped-view-button').click();
