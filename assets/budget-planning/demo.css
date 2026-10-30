@@ -270,7 +270,11 @@ body.budget-demo {
 
 .topbar-left { min-width: 0; flex: 1 1 auto; gap: 14px; }
 .topbar-center { gap: 9px; color: var(--ink-muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
-.topbar-right { flex: none; flex-direction: column; align-items: flex-end; gap: 2px; }
+.topbar-right { flex: none; flex-direction: row; align-items: center; gap: 12px; }
+.playback-controls { display: flex; align-items: center; gap: 6px; }
+.playback-controls .button { min-height: 36px; flex: none; padding: 0 10px; font-size: 10px; white-space: nowrap; }
+.playback-controls #play-button { min-width: 62px; }
+.playback-controls #reset-button { min-width: 54px; }
 
 .back-link {
   display: inline-flex;
@@ -715,6 +719,12 @@ body.budget-demo {
   .cockpit { --left-rail-width: auto; --sensor-inset-width: 180px; --sensor-panel-height: 206px; min-height: 100dvh; }
   .world-topbar { min-height: 54px; padding: 8px 12px; }
   .topbar-left { gap: 9px; }
+  .topbar-right { gap: 0; }
+  .scene-state { display: none; }
+  .playback-controls { gap: 5px; }
+  .playback-controls .button { min-height: 38px; padding: 0 8px; font-size: 9px; }
+  .playback-controls #play-button { min-width: 54px; }
+  .playback-controls #reset-button { min-width: 48px; }
   .topbar-rule, .paper-link, .mission-title .eyebrow { display: none; }
   .mission-title h1 { font-size: clamp(9px, 1.1vw, 12px); letter-spacing: -.045em; }
   .topbar-center { position: static; display: flex; margin-left: auto; padding: 0; background: none; border: 0; font-size: 8px; }

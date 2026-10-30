@@ -248,7 +248,15 @@ function terrainBaseHeight(world, x, y) {
   const u = clamp(x / world.width, 0, 1), v = 1 - clamp(y / world.height, 0, 1);
   // Local USGS topography supplies the polygon surface. Vertical scales and
   // geography are compressed to match the mission's fixed 35 m flight layer.
-  if (world.id === 'ann-arbor') return 1 + sampleAnnArborCampusHeight(u, v, 0) * 6;
+  if (world.id === 'ann-arbor') {
+    // Add broad, low-relief campus rolls over the measured surface. Each axis
+    // spans most of the map, so the result reads as gentle terrain variation
+    // without introducing a distinct hill or changing the stadium foundation.
+    const campusRoll = 1.25
+      * Math.sin(TAU * (1.15 * u + 0.12 * v) + 0.6)
+      * Math.cos(TAU * (0.16 * u + 0.95 * v) - 0.4);
+    return 1 + sampleAnnArborCampusHeight(u, v, 0) * 6 + campusRoll;
+  }
   if (world.id === 'farm') return 1 + sampleAnnArborWestFarmHeight(u, v, 0) * 2.4;
   return .8 + sampleTucsonCatalinaHeight(u * .22, .7 + v * .25, 0) * 3;
 }
@@ -581,11 +589,20 @@ function addFarmGeometry(world) {
     { id: 'farm-solar-array', label: 'Solar array', kind: 'rect', x: 78, y: 174, width: 28, height: 32, angle: -0.12, known: true },
   );
 
-  // A farmstead-to-barn lane bends around the aviary and the center plaza.
-  // Its broad worn verge is the substrate for the renderer's paired tracks.
+  // Winding farm lanes bend around the aviary and the center plaza. The
+  // broad worn verges are substrates for the renderer's paired tracks.
   addPathRoad(world, [
     [55, 78], [74, 82], [93, 86], [112, 90], [130, 92], [147, 88],
     [165, 85], [184, 87], [202, 94], [218, 106], [230, 122], [239, 138], [247, 153],
+  ], 5.6, 'gravel');
+  // The north spur loops past the orchard gate and reconnects to the main
+  // lane. The south lane feeds the open fields and ends inside the map edge.
+  addPathRoad(world, [
+    [184, 87], [180, 75], [179, 64], [184, 54], [194, 47], [207, 44],
+    [220, 47], [229, 55], [233, 67], [232, 78], [226, 87], [216, 92], [202, 94],
+  ], 5.6, 'gravel');
+  addPathRoad(world, [
+    [230, 122], [231, 137], [225, 153], [218, 170], [214, 189], [216, 208], [220, 225],
   ], 5.6, 'gravel');
 
   // Background farm buildings; named localization sites below have their own
@@ -740,6 +757,21 @@ function addAnnArborGeometry(world) {
     [20, 190], [38, 197], [52, 200], [67, 199], [81, 192], [90, 184],
     [110, 182], [130, 184], [151, 185], [172, 184], [190, 186], [207, 190],
     [227, 191], [247, 187], [267, 185], [287, 188],
+  ], 6.2, 'asphalt');
+  // A campus loop skirts the quad and plaza, then reconnects at both ends of
+  // the existing north-campus street.
+  addPathRoad(world, [
+    [194, 72], [204, 62], [218, 56], [234, 54], [251, 58], [266, 67],
+    [277, 79], [281, 91], [277, 102], [268, 109], [254, 111], [239, 110],
+    [222, 109], [214, 106],
+  ], 6.2, 'asphalt');
+  // Short access streets meet the north and south campus roads near Ford and
+  // the goal pavilion while keeping a clear shoulder around each structure.
+  addPathRoad(world, [
+    [88, 94], [81, 84], [78, 74], [83, 68], [96, 67], [105, 69],
+  ], 6.2, 'asphalt');
+  addPathRoad(world, [
+    [247, 187], [243, 182], [244, 178], [248, 175],
   ], 6.2, 'asphalt');
   addObject(world, { kind: 'building', x: 100, y: 200, width: 22, depth: 17, height: 13, color: '#a7674f' });
   addObject(world, { kind: 'building', x: 260, y: 220, width: 24, depth: 18, height: 13, color: '#aa7354' });

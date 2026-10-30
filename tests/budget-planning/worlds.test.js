@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { CatmullRomCurve3, Vector3 } from 'three';
 
 import {
   MAX_FEATURES,
@@ -19,6 +20,7 @@ import {
   watercourseSurface,
   worldCollision,
 } from '../../assets/budget-planning/worlds.js';
+import { sampleAnnArborCampusHeight } from '../../assets/terrain/ground-elevation.js';
 import { Simulation } from '../../assets/budget-planning/simulation.js';
 
 const EPSILON = 1e-8;
@@ -47,6 +49,27 @@ function distanceToRoadPolyline(x, y, path) {
     nearest = Math.min(nearest, distanceToSegment(x, y, path[index - 1], path[index]));
   }
   return nearest;
+}
+
+function sampleRoadCenterline(path, spacing = .25) {
+  const points = path.map(([x, y]) => new Vector3(x, 0, y));
+  const length = points.slice(1).reduce((sum, point, index) => sum + point.distanceTo(points[index]), 0);
+  const curve = new CatmullRomCurve3(points, false, 'centripetal', .5);
+  curve.arcLengthDivisions = Math.max(200, Math.ceil(length * 4));
+  curve.updateArcLengths();
+  const count = Math.max(1, Math.ceil(curve.getLength() / spacing));
+  return Array.from({ length: count + 1 }, (_, index) => curve.getPointAt(index / count));
+}
+
+function objectFootprintDistance(x, y, object) {
+  const angle = Number(object.rotation) || 0;
+  const dx = x - object.x, dy = y - object.y;
+  const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
+  const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
+  return Math.hypot(
+    Math.max(0, Math.abs(localX) - object.width / 2),
+    Math.max(0, Math.abs(localY) - object.depth / 2),
+  );
 }
 
 test('launch sites and all localization landmarks are anchored to recognizable physical objects', () => {
@@ -165,6 +188,69 @@ test('Farm and Ann Arbor natural features clear road shoulders and tree crowns',
   }
 });
 
+test('Farm and Ann Arbor add connected, bounded roads clear of buildings and the river', () => {
+  const farm = createWorld('farm', 1337);
+  const farmRoads = farm.objects.filter((object) => object.kind === 'road' && Array.isArray(object.path));
+  assert.equal(farmRoads.length, 3, 'Farm should have a main lane and two connected branches');
+  assert.ok(farmRoads.every((road) => road.surface === 'gravel'));
+  const orchardLoop = farmRoads[1];
+  for (const [x, y] of [orchardLoop.path[0], orchardLoop.path.at(-1)]) {
+    assert.ok(distanceToRoadPolyline(x, y, farmRoads[0].path) < .05,
+      'both ends of the orchard loop should rejoin the main Farm lane');
+  }
+  assert.ok(distanceToRoadPolyline(...farmRoads[2].path[0], farmRoads[0].path) < .05,
+    'the southern Farm lane should branch from the main route');
+  assert.ok(farm.height - farmRoads[2].path.at(-1)[1] >= 5,
+    'the southern Farm lane should end inside the map with room for its verge');
+
+  const city = createWorld('ann-arbor', 1337);
+  const cityRoads = city.objects.filter((object) => object.kind === 'road' && Array.isArray(object.path));
+  assert.equal(cityRoads.length, 5, 'Ann Arbor should have its two main streets and three connected access routes');
+  assert.ok(cityRoads.every((road) => road.surface === 'asphalt'));
+  const northStreet = cityRoads[0], southStreet = cityRoads[1];
+  const campusLoop = cityRoads[2], fordAccess = cityRoads[3], pavilionAccess = cityRoads[4];
+  for (const [x, y] of [campusLoop.path[0], campusLoop.path.at(-1)]) {
+    assert.ok(distanceToRoadPolyline(x, y, northStreet.path) < .05,
+      'both ends of the campus bypass should join the north street');
+  }
+  assert.ok(distanceToRoadPolyline(...fordAccess.path[0], northStreet.path) < .05,
+    'the Ford access street should join the north street');
+  assert.ok(distanceToRoadPolyline(...pavilionAccess.path[0], southStreet.path) < .05,
+    'the pavilion access street should join the south street');
+
+  for (const world of [farm, city]) {
+    const roads = world.objects.filter((object) => object.kind === 'road' && Array.isArray(object.path));
+    const solidObjects = world.objects.filter((object) => ['building', 'tower', 'plaza', 'stadium'].includes(object.kind));
+    for (const road of roads) {
+      const shoulder = world.id === 'ann-arbor' && road.surface === 'asphalt' ? .7 : 0;
+      const roadRadius = road.width / 2 + shoulder;
+      for (const point of sampleRoadCenterline(road.path)) {
+        assert.ok(point.x >= roadRadius && point.x <= world.width - roadRadius
+          && point.z >= roadRadius && point.z <= world.height - roadRadius,
+        `${world.id} road centerline and verge should stay inside the map`);
+        for (const object of solidObjects) {
+          const distance = objectFootprintDistance(point.x, point.z, object);
+          assert.ok(distance > roadRadius + .2,
+            `${world.id} road should clear ${object.label || object.kind} by ${distance.toFixed(2)} m`);
+        }
+        if (world.river) {
+          const distance = watercourseDistance(world, point.x, point.z);
+          const riverBuffer = world.river.width / 2 + world.river.bankWidth + roadRadius;
+          assert.ok(distance > riverBuffer + .2,
+            `Ann Arbor road should clear the Huron River and bank by ${distance.toFixed(2)} m`);
+        }
+      }
+    }
+  }
+
+  const ford = city.objects.find((object) => object.style === 'ford-robotics');
+  const pavilion = city.objects.find((object) => object.style === 'landmark-campus-pavilion');
+  assert.ok(objectFootprintDistance(...fordAccess.path.at(-1), ford) <= 12,
+    'Ford access should terminate near the building entrance area');
+  assert.ok(objectFootprintDistance(...pavilionAccess.path.at(-1), pavilion) <= 12,
+    'pavilion access should terminate near the goal building');
+});
+
 test('poor interiors stay nearly empty and richness metadata is queryable', () => {
   for (const id of WORLD_IDS) {
     const world = createWorld(id, 2026);
@@ -278,6 +364,43 @@ test('Ann Arbor truth shares a winding Huron River with terrain and scenery', ()
   assert.ok(maximumTerrain < city.altitude, 'Ann Arbor hills must stay below the flight layer');
   assert.ok(maximumTerrain > 5, 'the measured campus terrain retains gradual relief');
   assert.equal(city.terrainMesh.heights.length, 161 * 116, 'campus surface storage remains bounded');
+});
+
+test('Ann Arbor terrain adds broad low relief without prominent local slopes', () => {
+  const city = createWorld('ann-arbor', 1337);
+  const reliefSamples = [];
+  let maximumSlope = 0;
+  for (let y = 0; y <= city.height; y += 2) {
+    for (let x = 0; x <= city.width; x += 2) {
+      const height = terrainHeight(city, x, y);
+      if (x + 2 <= city.width) maximumSlope = Math.max(maximumSlope,
+        Math.abs(terrainHeight(city, x + 2, y) - height) / 2);
+      if (y + 2 <= city.height) maximumSlope = Math.max(maximumSlope,
+        Math.abs(terrainHeight(city, x, y + 2) - height) / 2);
+    }
+  }
+  for (let y = 16; y < city.height; y += 16) for (let x = 16; x < city.width; x += 16) {
+    // Measure the added roll away from river cuts and the stadium foundation.
+    if (watercourseDistance(city, x, y) < 25 || (Math.abs(x - 155) < 48 && Math.abs(y - 105) < 58)) continue;
+    const measured = 1 + sampleAnnArborCampusHeight(x / city.width, 1 - y / city.height, 0) * 6;
+    reliefSamples.push({ x, y, delta: terrainHeight(city, x, y) - measured });
+  }
+  const deltas = reliefSamples.map((sample) => sample.delta);
+  const mean = deltas.reduce((sum, value) => sum + value, 0) / deltas.length;
+  const rms = Math.sqrt(deltas.reduce((sum, value) => sum + (value - mean) ** 2, 0) / deltas.length);
+  const reliefSpread = Math.max(...deltas) - Math.min(...deltas);
+  let maximumCoarseChange = 0;
+  for (const sample of reliefSamples) for (const adjacent of reliefSamples) {
+    if (Math.abs(sample.x - adjacent.x) + Math.abs(sample.y - adjacent.y) === 16) {
+      maximumCoarseChange = Math.max(maximumCoarseChange, Math.abs(sample.delta - adjacent.delta));
+    }
+  }
+  assert.ok(rms > .5 && rms < .9, `added campus relief should remain gentle (RMS ${rms.toFixed(2)} m)`);
+  assert.ok(reliefSpread > 2.2 && reliefSpread < 2.8,
+    `broad campus relief should vary across the map (spread ${reliefSpread.toFixed(2)} m)`);
+  assert.ok(maximumCoarseChange < .6,
+    `broad campus relief should change gradually over 16 m (${maximumCoarseChange.toFixed(2)} m)`);
+  assert.ok(maximumSlope < .7, `terrain should remain below prominent local slopes (${maximumSlope.toFixed(2)} m/m)`);
 });
 
 test('Ann Arbor authored facilities keep five landmark roots and safe dimensions', () => {

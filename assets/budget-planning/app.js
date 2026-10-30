@@ -61,7 +61,7 @@ function setPlaying(value) {
   // visibility callback must not resume a mission while a preview is active.
   playing=Boolean(value)&&!editing&&!$('play-button').disabled;
   $('play-button').textContent=playing?'Pause':'Play';
-  $('play-button').setAttribute('aria-pressed',String(!playing));
+  $('play-button').setAttribute('aria-pressed',String(playing));
   worker?.postMessage({type:'play',runId,playing});
 }
 function setSimulationRate(value) {
@@ -136,6 +136,11 @@ function restart(resumePlaying = playing) {
   startMission(resumePlaying,request).catch(error=>{
     if(request===startupRequest)showInitializationError(`World initialization failed: ${error.message}`);
   });
+}
+function resetMission() {
+  const failed=Boolean(lastSnapshot&&(lastSnapshot.failure||lastSnapshot.fault||lastSnapshot.phase==='fault'));
+  const nominalFailure=failed&&(lastSnapshot.gatekeeper===false||config.gatekeeper===false);
+  restart(nominalFailure?true:playing);
 }
 async function startMission(resumePlaying,request) {
   if(!renderer){showInitializationError('3D rendering is unavailable. Enable WebGL 2 and reload the page.');return;}
@@ -352,10 +357,10 @@ for(const [id,key]of controls) {
 }
 $('world-select').addEventListener('change',e=>{worldId=e.target.value;restart();});
 $('simulation-rate-input').addEventListener('input',event=>setSimulationRate(event.target.value));
-$('play-button').addEventListener('click',()=>setPlaying(!playing));$('reset-button').addEventListener('click',()=>restart());
+$('play-button').addEventListener('click',()=>setPlaying(!playing));$('reset-button').addEventListener('click',resetMission);
 $('defaults-button').addEventListener('click',()=>{config={...DEFAULT_CONFIG};setSimulationRate(DEFAULT_SIMULATION_RATE);worldLayouts.delete(worldId);restart();});
 $('gatekeeper-toggle').addEventListener('change',e=>{config.gatekeeper=e.target.checked;restart();});
-$('failure-reset').addEventListener('click',()=>restart());$('initialization-reset').addEventListener('click',()=>restart());
+$('failure-reset').addEventListener('click',resetMission);$('initialization-reset').addEventListener('click',()=>restart());
 $('top-button').addEventListener('click',()=>setView('top'));$('fpv-button').addEventListener('click',()=>setView('fpv'));$('orbit-button').addEventListener('click',()=>setView('orbit'));$('view-button').addEventListener('click',()=>{setView('orbit');renderer.resetView();});
 if($('world-edit-toggle'))$('world-edit-toggle').addEventListener('change',event=>event.target.checked?enterWorldEditor():finishWorldEditor(false));
 if($('world-edit-close'))$('world-edit-close').addEventListener('click',()=>finishWorldEditor(false));
@@ -383,7 +388,7 @@ window.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&editing){event.preventDefault();finishWorldEditor(false);return;}
   if(event.repeat||event.ctrlKey||event.metaKey||event.altKey||/INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName))return;
   if(event.code==='Space'){event.preventDefault();setPlaying(!playing);}
-  else if(event.key.toLowerCase()==='r')restart();
+  else if(event.key.toLowerCase()==='r')resetMission();
   else if(event.key.toLowerCase()==='t')setView('top');
   else if(event.key.toLowerCase()==='f')setView('fpv');
   else if(event.key.toLowerCase()==='v'){setView('orbit');renderer.resetView();}

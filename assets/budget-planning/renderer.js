@@ -937,10 +937,8 @@ export class DemoRenderer {
       transparent: true,
     }));
     const sprite = new THREE.Sprite(material);
-    // Keep the badge legible at every orbit distance while retaining the
-    // canvas aspect ratio (1024:152).  Landmark badges use two lines so the
-    // role and current knowledge state are visible without relying on color.
-    sprite.scale.set(.23, .0342, 1);
+    // Keep text legible at every orbit distance. The fixed-size backing
+    // texture is cropped to the text below, so short names get small badges.
     sprite.renderOrder = 20;
     sprite.userData.badge = { canvas, context, texture, label, stateKey: null };
     this._updateLabelBadge(sprite, options.role, options.status, accent, true);
@@ -961,33 +959,48 @@ export class DemoRenderer {
     const stateKey = `${nextRole}|${nextStatus}|${colorHex}|${badge.label}`;
     if (!force && badge.stateKey === stateKey) return;
     const { canvas, context } = badge;
+    const hasStatusLine = Boolean(nextRole || nextStatus);
+    const caption = [nextRole, nextStatus].filter(Boolean).join('  ·  ');
+    let fontSize = hasStatusLine ? 43 : 44;
+    context.font = `700 ${fontSize}px ${GENERATED_LABEL_FONT}`;
+    const measured = context.measureText(badge.label).width;
+    if (measured > 900) fontSize = Math.max(25, Math.floor(fontSize * 900 / measured));
+    context.font = `700 ${fontSize}px ${GENERATED_LABEL_FONT}`;
+    const titleWidth = context.measureText(badge.label).width;
+    context.font = `800 24px ${GENERATED_LABEL_FONT}`;
+    const captionWidth = hasStatusLine ? context.measureText(caption).width : 0;
+    const paddingX = 28, paddingY = 14, lineGap = 8;
+    const width = Math.min(canvas.width, Math.ceil(Math.max(titleWidth, captionWidth) + paddingX * 2));
+    const height = paddingY * 2 + fontSize + (hasStatusLine ? 24 + lineGap : 0);
+    const left = (canvas.width - width) / 2, top = (canvas.height - height) / 2;
     context.clearRect(0, 0, canvas.width, canvas.height);
+    context.save();
+    context.translate(left, top);
     context.fillStyle = '#132f3beF';
     context.beginPath();
-    if (typeof context.roundRect === 'function') context.roundRect(2, 2, canvas.width - 4, canvas.height - 4, 18);
-    else context.rect(2, 2, canvas.width - 4, canvas.height - 4);
+    if (typeof context.roundRect === 'function') context.roundRect(3, 3, width - 6, height - 6, 12);
+    else context.rect(3, 3, width - 6, height - 6);
     context.fill();
     context.strokeStyle = `#${colorHex}`;
     context.lineWidth = 6;
     context.stroke();
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    const hasStatusLine = Boolean(nextRole || nextStatus);
-    const labelY = hasStatusLine ? 101 : 77;
-    let fontSize = hasStatusLine ? 43 : 44;
-    context.font = `700 ${fontSize}px ${GENERATED_LABEL_FONT}`;
-    const maxLabelWidth = 900;
-    const measured = context.measureText(badge.label).width;
-    if (measured > maxLabelWidth) fontSize = Math.max(25, Math.floor(fontSize * maxLabelWidth / measured));
+    const labelY = paddingY + (hasStatusLine ? 24 + lineGap : 0) + fontSize / 2;
     context.font = `700 ${fontSize}px ${GENERATED_LABEL_FONT}`;
     context.fillStyle = '#f7f2e7';
-    context.fillText(badge.label, canvas.width / 2, labelY);
+    context.fillText(badge.label, width / 2, labelY);
     if (hasStatusLine) {
       context.font = `800 24px ${GENERATED_LABEL_FONT}`;
       context.fillStyle = '#b8d5d4';
-      const caption = [nextRole, nextStatus].filter(Boolean).join('  ·  ');
-      context.fillText(caption, canvas.width / 2, 43);
+      context.fillText(caption, width / 2, paddingY + 12);
     }
+    context.restore();
+    // Crop UVs instead of resizing an uploaded GPU texture. Matching sprite
+    // scale preserves the existing text size while removing unused space.
+    badge.texture.repeat.set(width / canvas.width, height / canvas.height);
+    badge.texture.offset.set(left / canvas.width, top / canvas.height);
+    sprite.scale.set(.23 * width / canvas.width, .23 * height / canvas.width, 1);
     badge.stateKey = stateKey;
     badge.texture.needsUpdate = true;
   }
@@ -1009,7 +1022,8 @@ export class DemoRenderer {
     const sprite = this._makeLabelBadge(label, LANDMARK_COLORS.observed);
     sprite.position.copy(group.position);
     sprite.position.y += (object.kind === 'stadium' ? 7 : positive(object.height, 7)) + 5;
-    sprite.scale.set(.20, .0296, 1);
+    sprite.scale.x *= .20 / .23;
+    sprite.scale.y *= .20 / .23;
     sprite.renderOrder = 11;
     sprite.userData = { ...group.userData, badge: sprite.userData.badge };
     this.markerGroup.add(sprite);this.buildingLabels.push({sprite,object});

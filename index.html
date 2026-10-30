@@ -35,6 +35,10 @@
         </div>
         <div class="topbar-right">
           <div class="scene-state"><span class="state-dot" aria-hidden="true"></span><span id="phase-label">Initialising</span></div>
+          <div class="playback-controls" role="group" aria-label="Mission playback">
+            <button id="play-button" class="button button-primary" type="button" aria-pressed="false">Play</button>
+            <button id="reset-button" class="button button-quiet" type="button">Reset</button>
+          </div>
         </div>
       </header>
 
@@ -114,10 +118,6 @@
             </div>
 
             <div class="panel-divider" aria-hidden="true"></div>
-            <div class="button-row">
-              <button id="play-button" class="button button-primary" type="button" aria-pressed="false"><span class="play-icon" aria-hidden="true">▶</span> Run mission</button>
-              <button id="reset-button" class="button button-quiet" type="button">Reset</button>
-            </div>
             <div class="button-row secondary-actions">
               <button id="defaults-button" class="text-button" type="button">Restore defaults</button>
               <button id="view-button" class="text-button" type="button">Reset camera</button>

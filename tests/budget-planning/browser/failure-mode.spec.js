@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-function fakeWorkerSource(shouldFail = false, failureKind = 'features') {
+function fakeWorkerSource(shouldFail = false, failureKind = 'features', failWhenNominal = false) {
   return `
     const failure = { kind: '${failureKind}', actual: ${failureKind === 'budget' ? 5.4 : 3}, limit: ${failureKind === 'budget' ? 5 : 6}, time: 1 };
     const makeSnapshot = (runId, sequence, gatekeeper, failure = null) => ({
@@ -44,7 +44,7 @@ function fakeWorkerSource(shouldFail = false, failureKind = 'features') {
       if (data.type !== 'init') return;
       const gatekeeper = data.config.gatekeeper !== false;
       self.postMessage({ type: 'snapshot', snapshot: makeSnapshot(data.runId, 1, gatekeeper) });
-      if (${shouldFail}) {
+      if (${shouldFail} && (${failWhenNominal ? '!gatekeeper' : 'true'})) {
         setTimeout(() => self.postMessage({
           type: 'snapshot',
           snapshot: makeSnapshot(data.runId, 2, gatekeeper, failure),
@@ -54,14 +54,14 @@ function fakeWorkerSource(shouldFail = false, failureKind = 'features') {
   `;
 }
 
-async function installFakeWorker(page, { failFirstRun = false, failureKind = 'features' } = {}) {
+async function installFakeWorker(page, { failFirstRun = false, failWhenNominal = false, failureKind = 'features' } = {}) {
   let workerRequests = 0;
   await page.route('**/assets/budget-planning/worker.js', async (route) => {
     workerRequests += 1;
-    const shouldFail = failFirstRun && workerRequests === 1;
+    const shouldFail = (failFirstRun && workerRequests === 1) || (failWhenNominal && workerRequests === 2);
     await route.fulfill({
       contentType: 'text/javascript',
-      body: fakeWorkerSource(shouldFail, failureKind),
+      body: fakeWorkerSource(shouldFail, failureKind, failWhenNominal),
     });
   });
 }
@@ -142,7 +142,37 @@ test('error-budget failure reports metres and its configured limit', async ({ pa
   await expect(page.locator('#play-button')).toBeDisabled();
 });
 
-test('real nominal-only flight triggers the budget FAIL alert and remains stopped',async({page})=>{
+for (const [label, resetSelector] of [['persistent Reset button', '#reset-button'], ['failure-alert Reset button', '#failure-reset'], ['R keyboard shortcut', null]]) {
+  test(`nominal-only failure reset resumes playback from the ${label}`, async ({ page }) => {
+    await installFakeWorker(page, { failWhenNominal: true, failureKind: 'budget' });
+    await page.goto('/budget-planning.html');
+    await waitForSnapshot(page);
+    await page.locator('#gatekeeper-toggle').uncheck();
+    await page.waitForFunction(() => window.__budgetDemo?.getState()?.gatekeeper === false
+      && window.__budgetDemo.getState()?.phase === 'fault');
+    await expect(page.locator('#failure-alert')).toBeVisible();
+    await expect(page.locator('#play-button')).toBeDisabled();
+
+    const failedRunId = await page.evaluate(() => window.__budgetDemo.getLifecycle().runId);
+    if (resetSelector) await page.locator(resetSelector).click();
+    else {
+      await page.locator('#scene-canvas').focus();
+      await page.keyboard.press('r');
+    }
+    await page.waitForFunction((runId) => {
+      const lifecycle = window.__budgetDemo?.getLifecycle();
+      const state = window.__budgetDemo?.getState();
+      return lifecycle?.runId > runId && lifecycle.playing && state?.gatekeeper === false
+        && state.phase !== 'fault' && !state.failure;
+    }, failedRunId);
+
+    await expect(page.locator('#failure-alert')).toBeHidden();
+    await expect(page.locator('#play-button')).toHaveText('Pause');
+    expect(await page.evaluate(() => window.__budgetDemo.getLifecycle().playing)).toBe(true);
+  });
+}
+
+test('real nominal-only failure stops, then persistent Reset resumes the mission',async({page})=>{
   await page.goto('/budget-planning.html');
   await waitForSnapshot(page);
   await page.locator('#budget-number').fill('1');await page.locator('#budget-number').press('Enter');
@@ -160,4 +190,22 @@ test('real nominal-only flight triggers the budget FAIL alert and remains stoppe
   await page.waitForTimeout(500);
   expect(await page.evaluate(()=>window.__budgetDemo.getState().pose)).toEqual(state.pose);
   if(test.info().project.name==='chromium')await page.screenshot({path:test.info().outputPath('nominal-budget-fail.png')});
+
+  const failedRunId = await page.evaluate(() => window.__budgetDemo.getLifecycle().runId);
+  await page.locator('#reset-button').click();
+  await page.waitForFunction((runId) => {
+    const lifecycle = window.__budgetDemo?.getLifecycle();
+    const resetState = window.__budgetDemo?.getState();
+    return lifecycle?.runId > runId && lifecycle.playing && resetState?.gatekeeper === false
+      && resetState.time > 0.2 && resetState.phase !== 'fault' && !resetState.failure && !resetState.fault;
+  }, failedRunId, { timeout: 30_000 });
+  const resumed = await page.evaluate(() => ({
+    state: window.__budgetDemo.getState(),
+    lifecycle: window.__budgetDemo.getLifecycle(),
+  }));
+  expect(resumed.state.gatekeeper).toBe(false);
+  expect(resumed.state.time).toBeGreaterThan(0.2);
+  expect(resumed.state.failure).toBeNull();
+  expect(resumed.state.fault).toBeNull();
+  expect(resumed.lifecycle.playing).toBe(true);
 });

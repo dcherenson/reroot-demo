@@ -42,6 +42,58 @@ test('responsive layout remains usable and exposes no horizontal overflow',async
  await page.locator('#play-button').scrollIntoViewIfNeeded();await page.locator('#play-button').click();
 });
 
+test('Play and Reset stay visible outside the tuning menu on desktop and mobile',async({page})=>{
+ const viewports=[{width:1280,height:720},{width:390,height:844}];
+ for(const viewport of viewports){
+  await page.setViewportSize(viewport);await page.goto('/budget-planning.html');
+  await page.waitForFunction(()=>window.__budgetDemo?.getState()?.time!==undefined);
+  await page.locator('.tuning-panel > summary').click();
+  await expect(page.locator('.tuning-panel')).toHaveJSProperty('open',false);
+  await expect(page.locator('#play-button')).toBeVisible();
+  await expect(page.locator('#reset-button')).toBeVisible();
+  await expect(page.locator('#play-button')).toHaveAttribute('aria-pressed','true');
+  const layout=await page.evaluate(()=>{
+   const rect=element=>{const box=element.getBoundingClientRect();return {left:box.left,right:box.right,top:box.top,bottom:box.bottom};};
+   const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+   const playback=rect(document.querySelector('.playback-controls'));
+   const buttons=[...document.querySelectorAll('#play-button,#reset-button')].map(rect);
+   const left=rect(document.querySelector('.topbar-left'));
+   const right=rect(document.querySelector('.topbar-right'));
+   const blockers=['.left-rail','.right-rail','.view-controls','.simulation-rate-panel'].map(selector=>rect(document.querySelector(selector)));
+   return {
+    uniqueIds:[document.querySelectorAll('#play-button').length,document.querySelectorAll('#reset-button').length],
+    outsideTuning:[...document.querySelectorAll('#play-button,#reset-button')].every(button=>!button.closest('.tuning-panel')),
+    viewportContains:buttons.every(button=>button.left>=0&&button.right<=innerWidth&&button.top>=0&&button.bottom<=innerHeight),
+    touchTargets:buttons.every(button=>button.bottom-button.top>=36),
+    headerColumnsSeparate:left.right<=right.left+1,
+    noControlOverlap:blockers.every(blocker=>!overlaps(playback,blocker)),
+    noHorizontalOverflow:document.documentElement.scrollWidth<=innerWidth+1,
+   };
+  });
+  expect(layout.uniqueIds).toEqual([1,1]);
+  expect(layout.outsideTuning).toBe(true);
+  expect(layout.viewportContains).toBe(true);
+  expect(layout.touchTargets).toBe(true);
+  expect(layout.headerColumnsSeparate).toBe(true);
+  expect(layout.noControlOverlap).toBe(true);
+  expect(layout.noHorizontalOverflow).toBe(true);
+ }
+});
+
+test('Reset preserves a paused mission when no failure occurred',async({page})=>{
+ await page.goto('/budget-planning.html');
+ await page.waitForFunction(()=>window.__budgetDemo?.getState()?.time>.4);
+ await page.locator('#play-button').click();
+ await expect(page.locator('#play-button')).toHaveText('Play');
+ await expect(page.locator('#play-button')).toHaveAttribute('aria-pressed','false');
+ const pausedRunId=await page.evaluate(()=>window.__budgetDemo.getLifecycle().runId);
+ await page.locator('#reset-button').click();
+ await page.waitForFunction(runId=>window.__budgetDemo.getLifecycle().runId>runId&&window.__budgetDemo.getState()?.time!==undefined,pausedRunId);
+ await expect(page.locator('#play-button')).toHaveText('Play');
+ await expect(page.locator('#play-button')).toHaveAttribute('aria-pressed','false');
+ expect(await page.evaluate(()=>window.__budgetDemo.getLifecycle().playing)).toBe(false);
+});
+
 test('expanded telemetry reserves the tuning rail and sensor slot at every supported size',async({page})=>{
  const viewports=[{width:1440,height:1000},{width:1366,height:768},{width:1280,height:720},{width:1024,height:768},{width:768,height:844},{width:640,height:844},{width:390,height:844}];
  const sliderIds=['budget-input','features-input','speed-input','radius-input','fov-input','range-input','pitch-input'];
