@@ -8,6 +8,7 @@ async function loadFarm(page) {
 }
 
 async function enterEditor(page) {
+  await expect(page.locator('#world-edit-toggle')).toBeEnabled();
   // Use the visible label: the accessible checkbox itself is intentionally
   // one pixel wide, and Firefox positions it beneath the label text.
   await page.locator('label[for="world-edit-toggle"]').click();

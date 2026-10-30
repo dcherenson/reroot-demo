@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('terrain detail attribute reduces diffuse contrast while RGB colors stay opaque', async ({ page }) => {
-  await page.route('**/assets/budget-planning/app.js', (route) => route.abort());
+  await page.route('**/assets/budget-planning/bootstrap.js', (route) => route.abort());
   await page.goto('/budget-planning.html');
   const shaderErrors = [];
   page.on('console', (message) => {
@@ -10,7 +10,8 @@ test('terrain detail attribute reduces diffuse contrast while RGB colors stay op
 
   const result = await page.evaluate(async () => {
     const THREE = await import('/assets/budget-planning/vendor/three.module.js');
-    const { createTerrainMaterial } = await import('/assets/budget-planning/terrain-materials.js');
+    const { createTerrainMaterial, prepareTerrainAssets } = await import('/assets/budget-planning/terrain-materials.js');
+    await prepareTerrainAssets('farm');
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 128;

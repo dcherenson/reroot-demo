@@ -4,8 +4,9 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { terrainHeight as worldTerrainHeight, watercourseDistance, watercourseSurface, isFeaturePoor } from './worlds.js';
 import { createStadium, createFordRobotics, createMedicalCenter } from './scenery-models.js';
 import { createVegetationModels } from './vegetation-models.js';
-import { drapedRectangleGeometry } from './terrain-geometry.js';
-import { createTerrainMaterial } from './terrain-materials.js';
+import { drapedRectangleGeometry, drapedPathGeometry } from './terrain-geometry.js';
+import { createTerrainMaterial, createRoadMaterial } from './terrain-materials.js';
+import { createScannedRockAssets } from './scanned-rocks.js';
 import { createLandmarkModel } from './landmark-models.js';
 import { SENSOR, sensorCalibration } from './sensor-camera.js';
 
@@ -18,6 +19,30 @@ import { SENSOR, sensorCalibration } from './sensor-camera.js';
  */
 
 const TAU = Math.PI * 2;
+
+// Fade worn road edges into the ground without adding a rectangular border.
+// Signed lateral coordinates still interpolate correctly across narrow tracks.
+function blendRoadEdges(material, { fade = .2, opacity = 1, dashed = false } = {}) {
+  material.transparent = true;
+  material.opacity = opacity;
+  material.depthWrite = false;
+  const previousCompile = material.onBeforeCompile;
+  const previousKey = material.customProgramCacheKey?.bind(material);
+  material.onBeforeCompile = (shader, renderer) => {
+    previousCompile?.call(material, shader, renderer);
+    shader.vertexShader = 'attribute float roadLateral; varying float vRoadLateral; varying float vRoadDistance;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvRoadLateral = roadLateral; vRoadDistance = uv.y;');
+    shader.fragmentShader = 'varying float vRoadLateral; varying float vRoadDistance;\n' + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <alphatest_fragment>', `
+      diffuseColor.a *= smoothstep(0.0, ${Number(fade).toFixed(3)}, 1.0 - abs(vRoadLateral));
+      ${dashed ? 'if (mod(vRoadDistance, 8.0) > 3.2) discard;' : ''}
+      if (diffuseColor.a < .025) discard;
+      #include <alphatest_fragment>
+    `);
+  };
+  material.customProgramCacheKey = () => `${previousKey?.() || ''}|road-edge-${fade}-${dashed}`;
+  return material;
+}
 const CAMERA_FAN_SEGMENTS = 32;
 const CAMERA_FAN_SCAN_STEPS = 48;
 const CAMERA_FAN_BOUNDARY_EPSILON = .05;
@@ -192,6 +217,13 @@ export class DemoRenderer {
     this.scene.add(hemisphere);
     const key = new THREE.DirectionalLight(0xfff0d6, 2.25);
     key.position.set(-90, 180, 80);
+    this.sunLight = key;
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -220, right: 220, top: 220, bottom: -220, near: 1, far: 500 });
+    key.shadow.bias = -.00015;
+    key.shadow.normalBias = .18;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
     this.scene.add(key);
     const fill = new THREE.DirectionalLight(0x8ab3bc, .8);
     fill.position.set(120, 80, -160);
@@ -646,12 +678,29 @@ export class DemoRenderer {
 
     this._buildTerrain(palette);
     this._buildScenery(palette);
+    this._configureSceneryShadows();
     this._buildKnowledgeFog();
     this._buildFeatures();
     this._buildLandmarks(palette);
     this._buildZones();
     this._updateKnowledgeVisibility();
     this.resetView();
+  }
+
+  _configureSceneryShadows() {
+    const enabled = this.world.id === 'farm' || this.world.id === 'ann-arbor';
+    this.sunLight.castShadow = enabled;
+    this.renderer.shadowMap.enabled = enabled;
+    this.sceneryGroup.traverse(object => {
+      if (!object.isMesh) return;
+      object.receiveShadow = enabled;
+      object.castShadow = enabled && object !== this.terrain
+        && !['field-surface', 'road-surface', 'road-shoulder', 'road-marking'].includes(object.name)
+        && object.userData?.type !== 'watercourse';
+    });
+    // Scenery is static between world edits. Reuse this map for both viewer
+    // and sensor frames instead of rendering a shadow pass every simulation tick.
+    this.renderer.shadowMap.needsUpdate = enabled;
   }
 
   _buildTerrain(palette) {
@@ -687,7 +736,7 @@ export class DemoRenderer {
       const bank = this.world.river ? 1 - THREE.MathUtils.smoothstep(riverDistance, 7, 18) : 0;
       const altitude = positions.getZ(index);
       const ridge = this.world.id === 'tucson' ? THREE.MathUtils.smoothstep(altitude, 8, 42) : 0;
-      const tint = new THREE.Color(this.world.id === 'tucson' ? '#e9c7a3' : this.world.id === 'farm' ? '#b2dc92' : '#c5e2a7');
+      const tint = new THREE.Color(this.world.id === 'tucson' ? '#e9c7a3' : this.world.id === 'farm' ? '#e3edda' : '#e7edde');
       tint.multiplyScalar(variation * (1 - bank * .2));
       if (ridge) { tint.lerp(new THREE.Color('#b3a294'), ridge * .6); weight = Math.max(weight, ridge); }
       colors.set([tint.r, tint.g, tint.b], index * 3);
@@ -800,12 +849,6 @@ export class DemoRenderer {
     }
     if ((id.includes('annarbor') || id.includes('ann-arbor') || id.includes('stadium')) && !objects.some((item) => String(item.kind).includes('stadium'))) {
       this._addStadium({ x: 160, y: 115, width: 106, depth: 68 }, palette);
-    }
-    if (id.includes('annarbor') || id.includes('ann-arbor')) {
-      const hasRoads = objects.filter((item) => String(item.kind).includes('road')).length;
-      if (hasRoads < 6) {
-        [[65, 115, 7, 215, 0], [245, 115, 7, 215, 0], [160, 57, 7, 280, Math.PI / 2], [160, 174, 7, 280, Math.PI / 2], [106, 115, 5, 170, .46]].forEach(([x, y, width, depth, rotation]) => this._addRoad({ x, y, width, depth, rotation, color: 0x607a71 }, palette));
-      }
     }
     this._buildNaturalFeatures();
   }
@@ -1000,11 +1043,29 @@ export class DemoRenderer {
   }
 
   _addField(object = {}, palette) {
-    const material = createTerrainMaterial(this.world, { owned: this._owned, variant: 'farm', maxAnisotropy: this.renderer.capabilities.getMaxAnisotropy() }).material;
+    const material = createTerrainMaterial(this.world, {
+      owned: this._owned,
+      variant: this.world.id === 'tucson' ? 'legacySoil' : this.world.id === 'ann-arbor' ? 'ann-arbor' : 'farm',
+      asset: this.world.id === 'ann-arbor' ? 'gravelRoad' : undefined,
+      maxAnisotropy: this.renderer.capabilities.getMaxAnisotropy(),
+    }).material;
     material.vertexColors = false;
     material.polygonOffset = true; material.polygonOffsetFactor = 0; material.polygonOffsetUnits = -1;
     const geometry = drapedRectangleGeometry(this.world, object, (x, y) => this._terrainHeight(x, y));
-    geometry.setAttribute('terrainDetail', new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(.55), 1));
+    const positions = geometry.attributes.position;
+    const detail = new Float32Array(positions.count);
+    for (let index = 0; index < positions.count; index++) {
+      const x = positions.getX(index) + this.world.width / 2, y = this.world.height / 2 - positions.getZ(index);
+      if (this.world.id === 'tucson') { detail[index] = .55; continue; }
+      let weight = .85;
+      for (const region of this.world.featureRegions || []) {
+        if (region.kind !== 'poor') continue;
+        const radius = Math.hypot((x - region.x) / region.rx, (y - region.y) / region.ry);
+        weight = Math.min(weight, .015 + .835 * THREE.MathUtils.smoothstep(radius, .65, 1.18));
+      }
+      detail[index] = weight;
+    }
+    geometry.setAttribute('terrainDetail', new THREE.BufferAttribute(detail, 1));
     const field = this._makeMesh(geometry, material);
     field.name = 'field-surface';
     this.sceneryGroup.add(field);
@@ -1012,6 +1073,33 @@ export class DemoRenderer {
   }
 
   _addRoad(object = {}, palette) {
+    if (Array.isArray(object.path) && this.world.id !== 'tucson') {
+      const group = new THREE.Group();
+      group.name = 'terrain-road';
+      const addStrip = ({ width = object.width, offset = 0, lift = .12, variant = object.surface, fade = .15, opacity = 1, paint = false }) => {
+        const geometry = drapedPathGeometry(this.world, object, (x, y) => this._terrainHeight(x, y), { width, offset, lift });
+        const material = paint
+          ? this._makeMaterial(new THREE.MeshStandardMaterial({ color: 0xd5c793, roughness: .94, side: THREE.DoubleSide }))
+          : createRoadMaterial(this.world, { variant, owned: this._owned, maxAnisotropy: this.renderer.capabilities.getMaxAnisotropy() }).material;
+        blendRoadEdges(material, { fade, opacity, dashed: paint });
+        const mesh = this._makeMesh(geometry, material);
+        mesh.name = paint ? 'road-marking' : lift === .12 ? 'road-surface' : 'road-shoulder';
+        mesh.userData = { roadSurface: variant, surfaceLift: lift, curvedRoad: true };
+        mesh.renderOrder = paint ? 3 : lift === .12 ? 2 : 1;
+        group.add(mesh);
+      };
+      if (object.surface === 'gravel') {
+        addStrip({ variant: 'shoulder', lift: .08, fade: .95, opacity: .22 });
+        addStrip({ width: 1.05, offset: -1.1, variant: 'gravel', fade: .45 });
+        addStrip({ width: 1.05, offset: 1.1, variant: 'gravel', fade: .45 });
+      } else {
+        addStrip({ width: object.width + 1.4, variant: 'shoulder', lift: .08, fade: .45, opacity: .85 });
+        addStrip({ variant: 'asphalt', fade: .045 });
+        addStrip({ width: .12, variant: 'paint', lift: .14, opacity: .75, fade: .2, paint: true });
+      }
+      this.sceneryGroup.add(group);
+      return group;
+    }
     const geometry = drapedRectangleGeometry(this.world, object, (x, y) => this._terrainHeight(x, y), { lift: .12 });
     const color = this.world.id === 'tucson' ? 0x9e7e60 : this.world.id === 'ann-arbor' ? 0x626a68 : 0x947d56;
     const material = this._makeMaterial(new THREE.MeshStandardMaterial({ color: hexColor(color, 0x9f8e68), roughness: 1, side: THREE.DoubleSide }));
@@ -1200,6 +1288,11 @@ export class DemoRenderer {
     const features = arrayLike(this.world.features);
     if (!features.length) return;
     const models = this._ensureVegetationModels();
+    // Replace a bounded selection of the existing rock positions. This adds
+    // scanned detail without inventing new features or changing Tucson.
+    const scanned = this.world.id === 'tucson' ? null : createScannedRockAssets({ owned: this._owned, maxAnisotropy: this.renderer.capabilities.getMaxAnisotropy() });
+    const scannedFeatures = scanned ? features.filter(feature => String(feature.kind).includes('rock')).filter((_feature, index) => index % 3 === 0).slice(0, 16) : [];
+    const scannedIds = new Set(scannedFeatures.map(feature => feature.id));
     // Ann Arbor's broad south lawn is intentionally feature-poor.  Restore
     // the readable campus silhouette dimensions used by the earlier authored
     // trees so the rich edge still reads across that clearing without adding
@@ -1277,7 +1370,7 @@ export class DemoRenderer {
     ];
     const dummy = new THREE.Object3D();
     batches.forEach((batch) => {
-      const entries = features.filter((feature) => batch.matches(String(feature.kind || '').toLowerCase()));
+      const entries = features.filter((feature) => batch.matches(String(feature.kind || '').toLowerCase()) && !scannedIds.has(feature.id));
       if (!entries.length) return;
       batch.parts.forEach((part) => {
         const material = this._vegetationMaterial(part.color, {
@@ -1300,6 +1393,27 @@ export class DemoRenderer {
         mesh.userData = { vegetation: part.name, instanceCount: entries.length };
         this.sceneryGroup.add(mesh);
       });
+    });
+    if (scanned) scanned.models.forEach((model, modelIndex) => {
+      const entries = scannedFeatures.filter((_feature, index) => index % scanned.models.length === modelIndex);
+      if (!entries.length) return;
+      const mesh = new THREE.InstancedMesh(model.geometry, model.material, entries.length);
+      mesh.name = 'feature-scanned-rocks';
+      const bounds = model.geometry.boundingBox;
+      const modelHeight = Math.max(.01, bounds.max.y - bounds.min.y);
+      entries.forEach((feature, index) => {
+        const size = finite(feature.size, 1.1);
+        dummy.position.copy(this._mapPosition(feature.x, feature.y, finite(feature.z, this._terrainHeight(feature.x, feature.y)), false));
+        dummy.position.y += .01;
+        dummy.rotation.y = Number(feature.id) * 2.399;
+        dummy.scale.set(size * 1.45, size * .90 / modelHeight, size * 1.18);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(index, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.userData = { vegetation: 'scanned-rock', instanceCount: entries.length, source: scanned.source };
+      this._owned.add(mesh);
+      this.sceneryGroup.add(mesh);
     });
   }
 
@@ -2491,6 +2605,8 @@ export class DemoRenderer {
     this._disposeOwned();
     this.sensorDepthMaterial?.dispose();
     this.sensorRenderTarget?.dispose();
+    this.sunLight.shadow.map?.dispose();
+    this.sunLight.shadow.mapPass?.dispose();
     this._sensorBottomUpReadBuffer = null;
     this.renderer.dispose();
     // WebKit keeps the canvas' pixel-store state when a WebGLRenderer is

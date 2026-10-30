@@ -293,6 +293,83 @@ function distanceToSegment(x, y, ax, ay, bx, by) {
   return Math.hypot(x - (ax + dx * t), y - (ay + dy * t));
 }
 
+function nearestRoadPoint(road, x, y) {
+  const points = Array.isArray(road?.path) ? road.path : [];
+  let nearest = { distance: Infinity };
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1], current = points[index];
+    if (!Array.isArray(previous) || !Array.isArray(current)) continue;
+    const ax = Number(previous[0]), ay = Number(previous[1]);
+    const bx = Number(current[0]), by = Number(current[1]);
+    if (![ax, ay, bx, by].every(Number.isFinite)) continue;
+    const dx = bx - ax, dy = by - ay, length = Math.hypot(dx, dy);
+    if (length < 1e-6) continue;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (length * length)));
+    const px = ax + dx * t, py = ay + dy * t;
+    const distance = Math.hypot(x - px, y - py);
+    if (distance < nearest.distance) nearest = { x: px, y: py, nx: -dy / length, ny: dx / length, distance };
+  }
+  return nearest;
+}
+
+function featureFootprintRadius(world, kind, size) {
+  const normalizedKind = String(kind || '').toLowerCase();
+  const scale = Math.max(.1, Number(size) || 1);
+  if (normalizedKind.includes('tree') || normalizedKind.includes('maple')) {
+    // Include the renderer's full horizontal tree crown bounds, not just the trunk.
+    return scale * (world.id === 'ann-arbor' ? 2 : 1.3);
+  }
+  if (normalizedKind.includes('shrub')) return scale * .95;
+  if (normalizedKind.includes('rock')) return scale * .9;
+  return scale * .65;
+}
+
+function featureClearOfRoads(world, x, y, kind, size) {
+  if (world.id !== 'farm' && world.id !== 'ann-arbor') return true;
+  const footprintRadius = featureFootprintRadius(world, kind, size);
+  for (const road of world.objects || []) {
+    if (road.kind !== 'road' || !Array.isArray(road.path)) continue;
+    // City asphalt rendering adds a 1.4 m gravel shoulder around the authored
+    // road width. The Farm width already describes the full worn verge.
+    const shoulderWidth = world.id === 'ann-arbor' && road.surface === 'asphalt' ? 1.4 : 0;
+    // The Catmull-Rom centerline can bow away from its control polyline by
+    // about 1.2 m on these authored routes. A 1.5 m allowance keeps this
+    // lightweight worker-safe check conservative without sampling Three.js.
+    const curveAllowance = 1.5;
+    const requiredDistance = (Math.max(0, Number(road.width) || 0) + shoulderWidth) / 2
+      + curveAllowance + footprintRadius;
+    if (nearestRoadPoint(road, x, y).distance <= requiredDistance) return false;
+  }
+  return true;
+}
+
+function moveFeaturesToRoadVerge(world) {
+  if (world.id !== 'farm' && world.id !== 'ann-arbor') return;
+  const roads = world.objects.filter(object => object.kind === 'road' && Array.isArray(object.path));
+  world.features = world.features.filter(feature => {
+    if (featureClearOfRoads(world, feature.x, feature.y, feature.kind, feature.size)) return true;
+    const candidates = roads.map(road => ({ road, point: nearestRoadPoint(road, feature.x, feature.y) }))
+      .sort((a, b) => a.point.distance - b.point.distance);
+    for (const { road, point } of candidates) {
+      const side = Math.sign((feature.x - point.x) * point.nx + (feature.y - point.y) * point.ny) || 1;
+      const shoulder = road.surface === 'asphalt' ? .7 : 0;
+      const clearance = road.width / 2 + shoulder + 1.5 + featureFootprintRadius(world, feature.kind, feature.size);
+      // Keep the original seeded clusters and IDs. Move overlapping scenery
+      // to the closest valid verge instead of deleting camera-visible groves.
+      for (const extra of [0, 2, 4, 6]) for (const direction of [side, -side]) {
+        const distance = clearance + .3 + (feature.id % 7) * .23 + extra;
+        const x = point.x + point.nx * direction * distance;
+        const y = point.y + point.ny * direction * distance;
+        if (!featurePlacementAllowed(world, x, y)
+          || !featureClearOfRoads(world, x, y, feature.kind, feature.size)) continue;
+        feature.x = x; feature.y = y; feature.z = surfaceHeight(world, x, y);
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
 function courseDistance(course, x, y) {
   const points = course?.centerline || course?.points || course?.path || [];
   let nearest = Infinity;
@@ -480,6 +557,21 @@ function addRoad(world, x, y, width, depth, rotation, color) {
   addObject(world, { kind: 'road', x, y, width, depth, height: 0.14, rotation, color });
 }
 
+function addPathRoad(world, path, width, surface) {
+  const points = path.map(([x, y]) => [Number(x), Number(y)]);
+  const bounds = points.reduce((result, [x, y]) => ({
+    minX: Math.min(result.minX, x), maxX: Math.max(result.maxX, x),
+    minY: Math.min(result.minY, y), maxY: Math.max(result.maxY, y),
+  }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+  const length = points.slice(1).reduce((sum, point, index) => sum + Math.hypot(point[0] - points[index][0], point[1] - points[index][1]), 0);
+  return addObject(world, {
+    kind: 'road', surface, path: points,
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+    width, depth: Math.max(width, length), height: 0.14,
+  });
+}
+
 function addFarmGeometry(world) {
   // The central aviary is a deliberate NFZ.  Its placement intersects the
   // direct home-to-goal line, while the north and south field lanes remain
@@ -489,9 +581,12 @@ function addFarmGeometry(world) {
     { id: 'farm-solar-array', label: 'Solar array', kind: 'rect', x: 78, y: 174, width: 28, height: 32, angle: -0.12, known: true },
   );
 
-  addRoad(world, 157, 114, 7, 290, 0.44, '#b5a16e');
-  addRoad(world, 150, 72, 7, 170, -0.08, '#b5a16e');
-  addRoad(world, 228, 150, 7, 120, 1.12, '#b5a16e');
+  // A farmstead-to-barn lane bends around the aviary and the center plaza.
+  // Its broad worn verge is the substrate for the renderer's paired tracks.
+  addPathRoad(world, [
+    [55, 78], [74, 82], [93, 86], [112, 90], [130, 92], [147, 88],
+    [165, 85], [184, 87], [202, 94], [218, 106], [230, 122], [239, 138], [247, 153],
+  ], 5.6, 'gravel');
 
   // Background farm buildings; named localization sites below have their own
   // recognizable structures, all below the fixed flight altitude.
@@ -632,9 +727,20 @@ function addAnnArborGeometry(world) {
     { id: 'campus-quad', label: 'Campus quad', kind: 'rect', x: 239, y: 89, width: 31, height: 25, angle: 0.04, known: true },
   );
 
-  addRoad(world, 155, 113, 8, 290, 0.42, '#789b79');
-  addRoad(world, 90, 48, 7, 150, -0.04, '#789b79');
-  addRoad(world, 242, 158, 7, 120, -0.8, '#789b79');
+  // North-campus streets stay north of the Huron and skirt the stadium and
+  // clock tower before reaching the quad's north edge.
+  addPathRoad(world, [
+    [38, 73], [55, 81], [72, 89], [88, 94], [103, 97], [115, 92], [122, 73],
+    [132, 63], [148, 59], [166, 59], [182, 62], [194, 72], [205, 83],
+    [213, 96], [214, 106], [209, 109], [199, 108],
+  ], 6.2, 'asphalt');
+  // A separate south-bank campus street follows the river without crossing it
+  // and passes clear of the greenway, medical center, and pavilion footprints.
+  addPathRoad(world, [
+    [20, 190], [38, 197], [52, 200], [67, 199], [81, 192], [90, 184],
+    [110, 182], [130, 184], [151, 185], [172, 184], [190, 186], [207, 190],
+    [227, 191], [247, 187], [267, 185], [287, 188],
+  ], 6.2, 'asphalt');
   addObject(world, { kind: 'building', x: 100, y: 200, width: 22, depth: 17, height: 13, color: '#a7674f' });
   addObject(world, { kind: 'building', x: 260, y: 220, width: 24, depth: 18, height: 13, color: '#aa7354' });
   addObject(world, { kind: 'building', x: 238, y: 20, width: 22, depth: 18, height: 12, color: '#ba825c' });
@@ -864,6 +970,7 @@ function generateFeatures(world) {
       addFeature(world, x, y, kind, world.features.length, size);
     }
   }
+  moveFeaturesToRoadVerge(world);
 }
 
 /**

@@ -2,6 +2,8 @@ import { DemoRenderer } from './renderer.js';
 import { createWorld } from './worlds.js';
 import { DEFAULTS } from './simulation.js';
 import { getLayoutTargets, updatedLayout, validateWorldLayout } from './world-layout.js';
+import { prepareTerrainAssets } from './terrain-materials.js';
+import { prepareScannedRocks } from './scanned-rocks.js';
 const $=id=>document.getElementById(id);
 const DEFAULT_CONFIG={...DEFAULTS,gatekeeper:DEFAULTS.gatekeeper!==false};
 const DEFAULT_SIMULATION_RATE=5;
@@ -18,6 +20,7 @@ function structuredCloneSafe(value) {
 const worldLayouts=new Map();
 let editing=false,editingResumePlaying=false,editingPriorView='orbit',editingPriorKnowledge=false,editingPriorPanelScroll=0;
 let selectedEditTarget=null;
+let startupRequest=0;
 function inspect(info) { $('inspect-title').textContent=info?.title||'Inspect the world';$('inspect-description').textContent=info?.description||'Click a landmark or restricted area to inspect its role.'; }
 function clearFailureAlert() {
   const alert=$('failure-alert');
@@ -129,17 +132,26 @@ function stopForFailure(snapshot) {
   $('phase-label').textContent='Fault';
 }
 function restart(resumePlaying = playing) {
-  try { startMission(resumePlaying); }
-  catch(error) { showInitializationError(`World initialization failed: ${error.message}`); }
+  const request=++startupRequest;
+  startMission(resumePlaying,request).catch(error=>{
+    if(request===startupRequest)showInitializationError(`World initialization failed: ${error.message}`);
+  });
 }
-function startMission(resumePlaying) {
+async function startMission(resumePlaying,request) {
   if(!renderer){showInitializationError('3D rendering is unavailable. Enable WebGL 2 and reload the page.');return;}
   if(editing){resumePlaying=editingResumePlaying;finishWorldEditor(false);}
   worker?.terminate();worker=null;runId++;const activeRunId=runId;lastSnapshot=null;pageSuspended=false;$('play-button').disabled=false;$('play-button').removeAttribute('aria-disabled');clearFailureAlert();clearInitializationError();sensorImage=null;sensorContext.clearRect(0,0,320,240);
-  $('loading-overlay').hidden=false;$('loading-overlay').textContent='Building the world and surveying home…';
+  $('loading-overlay').hidden=false;$('loading-overlay').textContent='Loading local scenery…';
   const activeLayout=structuredCloneSafe(worldLayouts.get(worldId)||{});
-  const world=createWorld(worldId,seed,activeLayout);renderer.setWorld(world);renderer.setEditTargets(getLayoutTargets(world));renderer.setSensorConfig(config);setMapView(mappedView);renderer.setViewMode(viewMode);
-  playing=Boolean(resumePlaying);inspect();updateControls();updateModeIndicator(config.gatekeeper);setPlaying(playing);if($('scene-world-label'))$('scene-world-label').textContent=world.label;$('status-text').textContent='Initializing online planning';
+  const activeWorldId=worldId;
+  $('play-button').disabled=true;
+  if($('world-edit-toggle'))$('world-edit-toggle').disabled=true;
+  await Promise.all([prepareTerrainAssets(activeWorldId),prepareScannedRocks(activeWorldId)]);
+  if(request!==startupRequest)return;
+  $('play-button').disabled=false;
+  $('loading-overlay').textContent='Building the world and surveying home…';
+  const world=createWorld(activeWorldId,seed,activeLayout);renderer.setWorld(world);renderer.setEditTargets(getLayoutTargets(world));renderer.setSensorConfig(config);setMapView(mappedView);renderer.setViewMode(viewMode);
+  playing=Boolean(resumePlaying)&&!document.hidden&&!pageSuspended;inspect();updateControls();updateModeIndicator(config.gatekeeper);setPlaying(playing);if($('scene-world-label'))$('scene-world-label').textContent=world.label;$('status-text').textContent='Initializing online planning';
   syncEditorTargets();
   const activeWorker=worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
   activeWorker.onmessage=event=>{
@@ -158,6 +170,7 @@ function startMission(resumePlaying) {
     }
     if(m.type!=='snapshot'||m.snapshot.runId!==runId)return;
     const s=m.snapshot;renderer.update(s);updateDashboard(s);drawSensor(s);$('loading-overlay').hidden=true;
+    if($('world-edit-toggle'))$('world-edit-toggle').disabled=false;
     // Debug data contains only bounded scalar summaries; never retains buffers.
     lastSnapshot={worldId:s.worldId,worldLayout:structuredCloneSafe(activeLayout),pose:s.pose,estimate:s.estimate,time:s.time,budget:s.budget,phase:s.phase,metrics:s.metrics,vision:s.vision,sensor:s.sensor,fault:s.fault,failure:s.failure,gatekeeper:s.gatekeeper!==false,featuresTracked:s.featuresTracked,knownZoneIds:s.knownZoneIds,discoveredLandmarkIds:s.discoveredLandmarkIds,activeLandmarkIds:s.activeLandmarkIds};
     const returned={},transfers=[];
@@ -275,6 +288,9 @@ function finishWorldEditor(committed=false) {
 }
 function enterWorldEditor() {
   if(editing||!renderer)return;
+  // A world switch clears the snapshot while its local scenery is loading.
+  // Do not allow the previous world's handles to edit the newly selected one.
+  if(!lastSnapshot){if($('world-edit-toggle'))$('world-edit-toggle').checked=false;return;}
   editing=true;editingResumePlaying=playing;editingPriorView=viewMode;editingPriorKnowledge=mappedView;
   const existingPanel=$('world-editor')?.closest('.panel-body');
   editingPriorPanelScroll=existingPanel?.scrollTop||0;
@@ -372,7 +388,7 @@ window.addEventListener('keydown',event=>{
   else if(event.key.toLowerCase()==='f')setView('fpv');
   else if(event.key.toLowerCase()==='v'){setView('orbit');renderer.resetView();}
 });
-window.addEventListener('pagehide',event=>{if(event.persisted){pageSuspended=true;if(!document.hidden)visiblePlaying=playing;setPlaying(false);return;}worker?.terminate();worker=null;pageSuspended=false;renderer?.dispose();});
+window.addEventListener('pagehide',event=>{if(event.persisted){pageSuspended=true;if(!document.hidden)visiblePlaying=playing;setPlaying(false);return;}startupRequest++;worker?.terminate();worker=null;pageSuspended=false;renderer?.dispose();});
 window.addEventListener('pageshow',event=>{if(!event.persisted||!pageSuspended)return;pageSuspended=false;if(!document.hidden&&!editing&&visiblePlaying)setPlaying(true);});
 window.__budgetDemo={getState:()=>lastSnapshot,getConfig:()=>({...config}),getMode:()=>config.gatekeeper?'gatekeeper':'nominal',getDiagnostics:()=>({...renderer?.getDiagnostics?.(),viewMode,editing}),getLifecycle:()=>({runId,playing,pageSuspended,workerActive:Boolean(worker),simulationRate,editing}),getWorldLayout:()=>structuredCloneSafe(worldLayouts.get(worldId)||{}),getLayoutTargets:()=>renderer?.getEditTargets?.()||[],getEditTargetScreenPosition:target=>renderer?.getEditTargetScreenPosition?.(target)||null,setView,reset:restart,setWorld:id=>{worldId=id;$('world-select').value=id;restart();},setConfig:values=>{config={...config,...values};config.gatekeeper=config.gatekeeper!==false;restart();},enterWorldEditor,exitWorldEditor:()=>finishWorldEditor(false),restoreWorldLayout};
 updateControls();updateModeIndicator(config.gatekeeper);restart();

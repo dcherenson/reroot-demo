@@ -23,6 +23,32 @@ import { Simulation } from '../../assets/budget-planning/simulation.js';
 
 const EPSILON = 1e-8;
 
+function distanceToSegment(x, y, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(x - a[0] - dx * t, y - a[1] - dy * t);
+}
+
+function featureRoadClearance(world, road, feature) {
+  const kind = String(feature.kind).toLowerCase();
+  const tree = kind.includes('tree') || kind.includes('maple');
+  const footprint = tree
+    ? feature.size * (world.id === 'ann-arbor' ? 2 : 1.3)
+    : kind.includes('shrub') ? feature.size * .95
+      : kind.includes('rock') ? feature.size * .9
+        : feature.size * .65;
+  const asphaltShoulder = world.id === 'ann-arbor' && road.surface === 'asphalt' ? .7 : 0;
+  return (road.width / 2) + asphaltShoulder + 1.5 + footprint;
+}
+
+function distanceToRoadPolyline(x, y, path) {
+  let nearest = Infinity;
+  for (let index = 1; index < path.length; index += 1) {
+    nearest = Math.min(nearest, distanceToSegment(x, y, path[index - 1], path[index]));
+  }
+  return nearest;
+}
+
 test('launch sites and all localization landmarks are anchored to recognizable physical objects', () => {
   for (const [id,style] of [['farm','landmark-barnhouse'],['tucson','landmark-saguaro'],['ann-arbor','ford-robotics']]) {
     const simulation=new Simulation(id,{},1337,{pixelFeatures:true});
@@ -102,6 +128,40 @@ test('scenery is clustered around authored edges rather than spread on a grid', 
     // seeded cluster sampler should have a long, irregular coordinate tail.
     const coordinateCount = new Set(world.features.map((feature) => `${feature.x.toFixed(4)},${feature.y.toFixed(4)}`)).size;
     assert.ok(coordinateCount > world.features.length * 0.98, `${id} scenery coordinates should remain irregular`);
+  }
+});
+
+test('Farm and Ann Arbor natural features clear road shoulders and tree crowns', () => {
+  for (const id of ['farm', 'ann-arbor']) {
+    const world = createWorld(id, 1337);
+    const roads = world.objects.filter((object) => object.kind === 'road' && Array.isArray(object.path));
+    assert.ok(roads.length > 0);
+
+    // World paths are Catmull-Rom splines. Their authored control polylines
+    // stay within about 1.2 m of those curves, so the 1.5 m margin here is a
+    // conservative, lightweight check that does not import rendering code.
+    for (const feature of world.features) for (const road of roads) {
+      const distance = distanceToRoadPolyline(feature.x, feature.y, road.path);
+      assert.ok(distance > featureRoadClearance(world, road, feature),
+        `${id} ${feature.kind} ${feature.id} should clear road ${distance.toFixed(2)} m away`);
+    }
+
+    // Clearing a road must relocate its grove, not erase the visual texture
+    // the camera needs at the transition into an intentionally sparse field.
+    assert.ok(world.features.length >= (id === 'farm' ? 500 : 380), `${id} should retain authored scenery clusters`);
+    for (const region of world.featureRegions.filter((candidate) => candidate.kind === 'rich')) {
+      const count = world.features.filter((feature) => (
+        ((feature.x - region.x) / region.rx) ** 2 + ((feature.y - region.y) / region.ry) ** 2 <= 1
+      )).length;
+      assert.ok(count >= 8, `${id} rich region ${region.id} should remain populated`);
+    }
+    const sparseLimit = Math.max(2, Math.ceil(world.features.length * 0.02));
+    for (const region of world.featureRegions.filter((candidate) => candidate.kind === 'poor')) {
+      const interiorCount = world.features.filter((feature) => (
+        ((feature.x - region.x) / (region.rx * 0.68)) ** 2 + ((feature.y - region.y) / (region.ry * 0.68)) ** 2 <= 1
+      )).length;
+      assert.ok(interiorCount <= sparseLimit, `${id} ${region.id} should remain sparse`);
+    }
   }
 });
 

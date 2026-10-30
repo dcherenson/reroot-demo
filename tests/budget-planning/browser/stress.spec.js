@@ -25,5 +25,7 @@ test('100 scene resets with editor handles release renderer resources and retain
   const sameWorld=samples.filter(s=>s.iteration%3===remainder&&Number.isFinite(s.backingStorage));
   if(sameWorld.length>1)expect(sameWorld.at(-1).backingStorage-sameWorld[0].backingStorage).toBeLessThan(2*1024*1024);
  }
- for(const s of samples){expect(s.renderer.editTargets).toBeGreaterThan(0);expect(s.renderer.geometries).toBeLessThan(400);expect(s.renderer.textures).toBeLessThan(20);}
+ // PBR ground/road maps, scanned rocks and the shared static shadow target
+ // add a fixed texture allocation; repeated worlds must still stay bounded.
+ for(const s of samples){expect(s.renderer.editTargets).toBeGreaterThan(0);expect(s.renderer.geometries).toBeLessThan(400);expect(s.renderer.textures).toBeLessThan(28);}
 });

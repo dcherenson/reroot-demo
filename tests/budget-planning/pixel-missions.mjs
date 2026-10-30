@@ -107,6 +107,11 @@ try {
       import('/assets/budget-planning/vision.js'),
       import('/assets/budget-planning/simulation.js'),
     ]);
+    const [{ prepareTerrainAssets }, { prepareScannedRocks }] = await Promise.all([
+      import('/assets/budget-planning/terrain-materials.js'),
+      import('/assets/budget-planning/scanned-rocks.js'),
+    ]);
+    await Promise.all([prepareTerrainAssets(requestedWorld), prepareScannedRocks(requestedWorld)]);
     const simulation = new Simulation(requestedWorld, requestedConfig, requestedSeed, { pixelFeatures: true });
     const vision = new LiveFeatureMap(simulation.world, simulation.config);
     const renderer = new DemoRenderer(document.querySelector('#scene-canvas'));

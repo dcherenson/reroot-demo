@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('measured terrain, local materials and finite ground surfaces agree in all worlds', async ({ page }, testInfo) => {
-  await page.route('**/assets/budget-planning/app.js', route => route.abort());
+  await page.route('**/assets/budget-planning/bootstrap.js', route => route.abort());
   await page.goto('/');
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -13,6 +13,10 @@ test('measured terrain, local materials and finite ground surfaces agree in all 
         import('/assets/budget-planning/renderer.js'), import('/assets/budget-planning/worlds.js'),
         import('/assets/budget-planning/vendor/three.module.js'),
       ]);
+      const [{ prepareTerrainAssets }, { prepareScannedRocks }] = await Promise.all([
+        import('/assets/budget-planning/terrain-materials.js'), import('/assets/budget-planning/scanned-rocks.js'),
+      ]);
+      await Promise.all([prepareTerrainAssets(id), prepareScannedRocks(id)]);
       window.__terrainPreview?.dispose();
       const renderer = window.__terrainPreview = new DemoRenderer(document.querySelector('#scene-canvas'));
       const world = createWorld(id);
@@ -31,10 +35,13 @@ test('measured terrain, local materials and finite ground surfaces agree in all 
         const p = a.multiplyScalar(.2).addScaledVector(b, .3).addScaledVector(c, .5);
         maximumTriangleError = Math.max(maximumTriangleError, Math.abs(p.y - terrainHeight(world, p.x + world.width / 2, world.height / 2 - p.z)));
       }
+      let texturedRoads = 0, scannedRockCount = 0;
       renderer.sceneryGroup.traverse(mesh => {
-        if (!['road-surface', 'field-surface'].includes(mesh.name)) return;
+        if (mesh.name === 'feature-scanned-rocks') scannedRockCount += mesh.count;
+        if (mesh.name === 'road-surface' && mesh.material.map) texturedRoads++;
+        if (!['road-surface', 'field-surface', 'road-shoulder', 'road-marking'].includes(mesh.name)) return;
         const a = mesh.geometry.attributes.position;
-        const lift = mesh.name === 'road-surface' ? .12 : .06;
+        const lift = mesh.userData.surfaceLift ?? (mesh.name === 'road-surface' ? .12 : .06);
         for (let i = 0; i < a.count; i += 3) {
           const x = (a.getX(i) + a.getX(i + 1) + a.getX(i + 2)) / 3 + world.width / 2;
           const y = world.height / 2 - (a.getZ(i) + a.getZ(i + 1) + a.getZ(i + 2)) / 3;
@@ -52,6 +59,7 @@ test('measured terrain, local materials and finite ground surfaces agree in all 
         planes: renderer.renderer.clippingPlanes.length,
         gridRemoved: !renderer.planningGrid,
         vertexCount: position.count,
+        texturedRoads, scannedRockCount, terrainNormalMap: Boolean(renderer.terrainMaterial.normalMap),
         opaqueSensor: frame.rgba.every((byte, i) => i % 4 !== 3 || byte === 255),
       };
     }, worldId);
@@ -65,6 +73,16 @@ test('measured terrain, local materials and finite ground surfaces agree in all 
     expect(result.gridRemoved).toBe(true);
     expect(result.opaqueSensor).toBe(true);
     expect(result.vertexCount).toBeLessThanOrEqual(321 * 231);
+    if (worldId === 'tucson') {
+      expect(result.texturedRoads).toBe(0);
+      expect(result.scannedRockCount).toBe(0);
+      expect(result.terrainNormalMap).toBe(false);
+    } else {
+      expect(result.texturedRoads).toBeGreaterThanOrEqual(2);
+      expect(result.scannedRockCount).toBeGreaterThan(0);
+      expect(result.scannedRockCount).toBeLessThanOrEqual(16);
+      expect(result.terrainNormalMap).toBe(true);
+    }
     await page.screenshot({ path: testInfo.outputPath(`${worldId}-terrain.png`) });
   }
   expect(errors).toEqual([]);
