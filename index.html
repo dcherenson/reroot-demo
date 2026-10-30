@@ -194,17 +194,6 @@
                 <span><i class="legend-swatch swatch-trail" aria-hidden="true"></i>Flight trails</span>
               </div>
             </details>
-
-            <details class="assumptions">
-              <summary>Model assumptions</summary>
-              <p>The 320 × 240 inset shows the actual image processed by FAST corner detection and oriented BRIEF matching. Simulated depth anchors the detected corners to surfaces; this is depth-assisted mapping, not a full SLAM implementation. By default, the simulation uses a 75 m, 90° processing footprint with line-of-sight occlusion, exact yaw and terrain, and ideal semantic landmarks. Gold outlined dots mark mapped features at their world locations; bright mint dots are currently tracked. These annotations remain visible through scenery. Aircraft markers are enlarged and banking is smoothed for display only.</p>
-              <p>Robot map hides unobserved scenery; mapped features alone do not certify a safe corridor. Ideal crowd recognition reveals the stadium's complete simulated no-fly boundary. Recognition does not authorize overflight. Home is surveyed; other corridors and renewal orbits are verified online. Restrictive settings may cause continued loitering. Viewer movement does not affect sensing.</p>
-              <p>Gatekeeper safety checks proposed flights; turning it off runs the direct nominal controller. Both modes stop with a red FAIL on an actual constraint violation. Feature overlap is required when no landmark supplies localization. Future image matches are predicted from mapped corners, so gatekeeper mode does not guarantee tracking for every setting.</p>
-            </details>
-            <details class="assumptions">
-              <summary>Ann Arbor visual references</summary>
-              <p>Procedural interpretations of the <a href="https://www.robotics.umich.edu/about/facilities/ford-robotics-building/" target="_blank" rel="noreferrer">Ford Robotics Building</a>, <a href="https://mgoblue.com/sports/2017/6/16/facilities-michigan-stadium-html?id=157" target="_blank" rel="noreferrer">Michigan Stadium</a>, and <a href="https://www.uofmhealth.org/our-care/clinical-units/survival-flight" target="_blank" rel="noreferrer">Michigan Medicine's Survival Flight helipad</a>. The river valley and gentle rises draw on Ann Arbor's <a href="https://www.a2gov.org/media/u1qjqduh/nfmasterplan_6-04.pdf" target="_blank" rel="noreferrer">Natural Features Master Plan</a>. Terrain polygons use locally bundled USGS elevation samples and Poly Haven ground materials. Layout and scale are compressed; restrictions are simulated.</p>
-            </details>
           </div>
         </details>
       </aside>

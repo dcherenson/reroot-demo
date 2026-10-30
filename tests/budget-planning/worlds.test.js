@@ -22,6 +22,7 @@ import {
 } from '../../assets/budget-planning/worlds.js';
 import { sampleAnnArborCampusHeight } from '../../assets/terrain/ground-elevation.js';
 import { Simulation } from '../../assets/budget-planning/simulation.js';
+import { pathLength, samplePaths } from '../../assets/budget-planning/dubins.js';
 
 const EPSILON = 1e-8;
 
@@ -357,16 +358,23 @@ test('Ann Arbor truth shares a winding Huron River with terrain and scenery', ()
     );
   }
 
+  let minimumTerrain = Infinity;
   let maximumTerrain = -Infinity;
   for (let y = 0; y <= city.height; y += 2) {
-    for (let x = 0; x <= city.width; x += 2) maximumTerrain = Math.max(maximumTerrain, terrainHeight(city, x, y));
+    for (let x = 0; x <= city.width; x += 2) {
+      const height = terrainHeight(city, x, y);
+      minimumTerrain = Math.min(minimumTerrain, height);
+      maximumTerrain = Math.max(maximumTerrain, height);
+    }
   }
   assert.ok(maximumTerrain < city.altitude, 'Ann Arbor hills must stay below the flight layer');
   assert.ok(maximumTerrain > 5, 'the measured campus terrain retains gradual relief');
+  assert.ok(maximumTerrain - minimumTerrain >= 10 && maximumTerrain - minimumTerrain <= 14,
+    `Ann Arbor should have visible rolling relief (${(maximumTerrain - minimumTerrain).toFixed(2)} m total spread)`);
   assert.equal(city.terrainMesh.heights.length, 161 * 116, 'campus surface storage remains bounded');
 });
 
-test('Ann Arbor terrain adds broad low relief without prominent local slopes', () => {
+test('Ann Arbor terrain adds visible broad rolls while preserving level pads and flight clearance', () => {
   const city = createWorld('ann-arbor', 1337);
   const reliefSamples = [];
   let maximumSlope = 0;
@@ -395,12 +403,48 @@ test('Ann Arbor terrain adds broad low relief without prominent local slopes', (
       maximumCoarseChange = Math.max(maximumCoarseChange, Math.abs(sample.delta - adjacent.delta));
     }
   }
-  assert.ok(rms > .5 && rms < .9, `added campus relief should remain gentle (RMS ${rms.toFixed(2)} m)`);
-  assert.ok(reliefSpread > 2.2 && reliefSpread < 2.8,
-    `broad campus relief should vary across the map (spread ${reliefSpread.toFixed(2)} m)`);
-  assert.ok(maximumCoarseChange < .6,
-    `broad campus relief should change gradually over 16 m (${maximumCoarseChange.toFixed(2)} m)`);
-  assert.ok(maximumSlope < .7, `terrain should remain below prominent local slopes (${maximumSlope.toFixed(2)} m/m)`);
+  assert.ok(rms > 2.2 && rms < 2.8, `broad campus relief should be visible but gentle (RMS ${rms.toFixed(2)} m)`);
+  assert.ok(reliefSpread > 8.5 && reliefSpread < 9.8,
+    `campus rolls should add several metres of variation (spread ${reliefSpread.toFixed(2)} m)`);
+  assert.ok(maximumCoarseChange < 1.35,
+    `broad terrain should change gradually over 16 m (${maximumCoarseChange.toFixed(2)} m)`);
+  assert.ok(maximumSlope < .75, `terrain should avoid prominent local slopes (${maximumSlope.toFixed(2)} m/m)`);
+
+  let minimumFlightClearance = Infinity;
+  let maximumFootprintRelief = 0;
+  let stadiumFootprintRelief = Infinity;
+  for (const object of city.objects) {
+    if (Number.isFinite(object.z) && Number.isFinite(object.height)) {
+      minimumFlightClearance = Math.min(minimumFlightClearance, city.altitude - object.z - object.height);
+    }
+    if (!['building', 'plaza', 'tower', 'stadium'].includes(object.kind)) continue;
+    let minimum = Infinity, maximum = -Infinity;
+    for (let ix = 0; ix <= 10; ix += 1) for (let iy = 0; iy <= 10; iy += 1) {
+      const localX = (ix / 10 - .5) * object.width;
+      const localY = (iy / 10 - .5) * object.depth;
+      const angle = Number(object.rotation) || 0;
+      const x = object.x + localX * Math.cos(angle) - localY * Math.sin(angle);
+      const y = object.y + localX * Math.sin(angle) + localY * Math.cos(angle);
+      const height = terrainHeight(city, x, y);
+      minimum = Math.min(minimum, height);
+      maximum = Math.max(maximum, height);
+    }
+    maximumFootprintRelief = Math.max(maximumFootprintRelief, maximum - minimum);
+    if (object.kind === 'stadium') stadiumFootprintRelief = maximum - minimum;
+  }
+  assert.ok(minimumFlightClearance >= 8,
+    `all buildings and towers should retain flight clearance (${minimumFlightClearance.toFixed(2)} m)`);
+  assert.ok(maximumFootprintRelief < 3,
+    `terrain should not cut steeply across authored footprints (${maximumFootprintRelief.toFixed(2)} m)`);
+  assert.ok(stadiumFootprintRelief < .1,
+    `the full stadium footprint should remain level (${stadiumFootprintRelief.toFixed(2)} m)`);
+
+  const stadiumPad = city.terrainPads.find((pad) => pad.id === 'michigan-stadium-platform');
+  assert.ok(stadiumPad);
+  for (const x of [145, 155, 165]) for (const y of [95, 105, 115]) {
+    assert.ok(Math.abs(terrainHeight(city, x, y) - stadiumPad.elevation) < 1e-5,
+      'the stadium field should remain level inside its foundation pad');
+  }
 });
 
 test('Ann Arbor authored facilities keep five landmark roots and safe dimensions', () => {
@@ -453,12 +497,20 @@ test('Ann Arbor authored facilities keep five landmark roots and safe dimensions
 });
 
 test('farm restricted airspace crosses the direct nominal route while remaining separate from collision', () => {
-  const farm = createWorld('farm', 1337);
-  const home = farm.landmarks[0];
-  const goal = farm.landmarks.at(-1);
+  const simulation = new Simulation('farm', { gatekeeper: false }, 1337);
+  const farm = simulation.world;
   const aviary = farm.zones.find((zone) => zone.id === 'farm-aviary');
-  const t = (aviary.x - home.x) / (goal.x - home.x);
-  const routeY = home.y + (goal.y - home.y) * t;
-  assert.equal(inZone(aviary, aviary.x, routeY), true);
-  assert.equal(worldCollision(farm, aviary.x, routeY), false);
+  assert.equal(aviary.known, true);
+  // The aircraft starts on the home orbit and joins a goal-orbit tangent.
+  // Its bounded-turn route differs from a line between the landmark centers.
+  const paths = simulation.nominalPaths;
+  assert.ok(paths.length > 0);
+  const incursions = [];
+  for (let distance = 0; distance <= pathLength(paths); distance += .5) {
+    const pose = samplePaths(paths, distance);
+    if (inZone(aviary, pose[0], pose[1])) incursions.push(pose);
+  }
+  assert.ok(incursions.length > 0, 'the actual nominal route must intersect the aviary restriction');
+  assert.ok(incursions.every(pose => !worldCollision(farm, pose[0], pose[1])),
+    'restricted airspace should remain distinct from physical collision geometry');
 });

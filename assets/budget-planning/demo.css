@@ -391,7 +391,6 @@ body.budget-demo {
 .cockpit-panel[open] > summary { border-bottom-color: var(--panel-line); }
 .cockpit-panel > summary::-webkit-details-marker,
 .telemetry-drawer > summary::-webkit-details-marker,
-.assumptions > summary::-webkit-details-marker,
 .path-legend > summary::-webkit-details-marker { display: none; }
 
 .cockpit-panel > summary::after,
@@ -576,13 +575,6 @@ body.budget-demo {
 .swatch-committed { background: var(--orange); }
 .swatch-backup { background: var(--green); }
 .swatch-trail { background: linear-gradient(90deg, var(--cyan) 0 40%, transparent 40% 56%, var(--cyan) 56% 72%, transparent 72%); }
-.assumptions { padding-top: 12px; color: #8da2a1; border-top: 1px solid var(--panel-line); font-size: 9px; }
-.assumptions + .assumptions { margin-top: 11px; }
-.assumptions summary { color: #afc1bd; cursor: pointer; font-size: 9px; font-weight: 680; list-style: none; }
-.assumptions summary::before { display: inline-block; width: 10px; color: var(--orange); content: "＋"; }
-.assumptions[open] summary::before { content: "－"; }
-.assumptions p { margin: 8px 0 0; line-height: 1.48; }
-.assumptions a { color: var(--cyan); }
 
 .simulation-rate-panel {
   position: absolute;
@@ -699,7 +691,6 @@ body.budget-demo {
   .tuning-panel .panel-body { max-height: calc(36dvh - 44px); }
   .view-panel { max-height: 23dvh; }
   .view-panel .panel-body { max-height: calc(23dvh - 44px); padding-top: 12px; padding-bottom: 12px; }
-  .view-panel .assumptions { display: none; }
   .sensor-inset { right: 12px; bottom: 61px; width: min(180px, calc(100vw - 24px)); }
   .simulation-rate-panel { bottom: 8px; height: 43px; padding: 4px 8px; }
   .sensor-heading { min-height: 24px; padding: 5px 8px; font-size: 8px; }
@@ -740,7 +731,6 @@ body.budget-demo {
   .tuning-panel .panel-body { max-height: calc(36dvh - 44px); }
   .view-panel { max-height: 23dvh; }
   .view-panel .panel-body { max-height: calc(23dvh - 44px); padding-top: 12px; padding-bottom: 12px; }
-  .view-panel .assumptions { display: none; }
   .sensor-inset { right: 12px; bottom: 61px; width: min(180px, calc(100vw - 24px)); }
   .sensor-heading { min-height: 24px; padding: 5px 8px; font-size: 8px; }
   .sensor-status { min-height: 21px; padding: 4px 8px; font-size: 8px; }

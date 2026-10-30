@@ -249,12 +249,13 @@ function terrainBaseHeight(world, x, y) {
   // Local USGS topography supplies the polygon surface. Vertical scales and
   // geography are compressed to match the mission's fixed 35 m flight layer.
   if (world.id === 'ann-arbor') {
-    // Add broad, low-relief campus rolls over the measured surface. Each axis
-    // spans most of the map, so the result reads as gentle terrain variation
-    // without introducing a distinct hill or changing the stadium foundation.
-    const campusRoll = 1.25
-      * Math.sin(TAU * (1.15 * u + 0.12 * v) + 0.6)
-      * Math.cos(TAU * (0.16 * u + 0.95 * v) - 0.4);
+    // Two wide rises and a shallow valley form a rolling campus profile. Their
+    // 65–85 m radii keep the slopes broad instead of creating sharp hilltops.
+    const px = u * world.width, py = (1 - v) * world.height;
+    const rise = (cx, cy, rx, ry) => Math.exp(-0.5 * (((px - cx) / rx) ** 2 + ((py - cy) / ry) ** 2));
+    const campusRoll = 5.5 * rise(20, 180, 70, 65)
+      + 7.5 * rise(270, 60, 70, 65)
+      - 4 * rise(110, 155, 85, 75);
     return 1 + sampleAnnArborCampusHeight(u, v, 0) * 6 + campusRoll;
   }
   if (world.id === 'farm') return 1 + sampleAnnArborWestFarmHeight(u, v, 0) * 2.4;
@@ -582,10 +583,10 @@ function addPathRoad(world, path, width, surface) {
 
 function addFarmGeometry(world) {
   // The central aviary is a deliberate NFZ.  Its placement intersects the
-  // direct home-to-goal line, while the north and south field lanes remain
-  // open for route planning.
+  // shortest orbit-to-orbit nominal flight, while the north and south field
+  // lanes remain open for route planning.
   world.zones.push(
-    { id: 'farm-aviary', label: 'Aviary', kind: 'circle', x: 151, y: 120, radius: 23, known: true },
+    { id: 'farm-aviary', label: 'Aviary', kind: 'circle', x: 151, y: 120, radius: 31, known: true },
     { id: 'farm-solar-array', label: 'Solar array', kind: 'rect', x: 78, y: 174, width: 28, height: 32, angle: -0.12, known: true },
   );
 
@@ -728,8 +729,8 @@ function addAnnArborGeometry(world) {
     width: 44,
     depth: 57,
     rotation: 0.08,
-    innerRadiusSquared: 1.2,
-    outerRadiusSquared: 2,
+    innerRadiusSquared: 2.05,
+    outerRadiusSquared: 4,
     // Capture the hill surface before this pad is registered so terrainHeight
     // never has to recurse through objectGroundZ while placing the stadium.
     elevation: terrainHeight(world, 155, 105),
