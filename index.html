@@ -143,16 +143,11 @@
             <div class="panel-kicker">Environment visibility</div>
             <div class="view-mode-bar">
               <div class="view-modes" role="group" aria-label="Environment visibility">
-                <button id="truth-view-button" type="button" aria-pressed="true">World truth</button>
-                <button id="mapped-view-button" type="button" aria-pressed="false">Robot map</button>
+                <button id="truth-view-button" type="button" aria-pressed="false">World truth</button>
+                <button id="mapped-view-button" type="button" aria-pressed="true">Robot map</button>
               </div>
-              <span id="view-mode-description">World truth · outlined dots are mapped features</span>
+              <span id="view-mode-description">Robot map · fog hides unobserved scenery</span>
             </div>
-            <label class="toggle-row" for="knowledge-toggle">
-              <span><strong>Robot map fog</strong><small>Hide unobserved scenery</small></span>
-              <input id="knowledge-toggle" type="checkbox" role="switch">
-              <span class="toggle-track" aria-hidden="true"><span></span></span>
-            </label>
 
             <div class="panel-divider" aria-hidden="true"></div>
             <div class="panel-kicker">World layout</div>
@@ -203,7 +198,7 @@
             <details class="assumptions">
               <summary>Model assumptions</summary>
               <p>The 320 × 240 inset shows the actual image processed by FAST corner detection and oriented BRIEF matching. Simulated depth anchors the detected corners to surfaces; this is depth-assisted mapping, not a full SLAM implementation. By default, the simulation uses a 75 m, 90° processing footprint with line-of-sight occlusion, exact yaw and terrain, and ideal semantic landmarks. Gold outlined dots mark mapped features at their world locations; bright mint dots are currently tracked. These annotations remain visible through scenery. Aircraft markers are enlarged and banking is smoothed for display only.</p>
-              <p>Robot map fog hides unobserved scenery; mapped features alone do not certify a safe corridor. Ideal crowd recognition reveals the stadium's complete simulated no-fly boundary. Recognition does not authorize overflight. Home is surveyed; other corridors and renewal orbits are verified online. Restrictive settings may cause continued loitering. Viewer movement does not affect sensing.</p>
+              <p>Robot map hides unobserved scenery; mapped features alone do not certify a safe corridor. Ideal crowd recognition reveals the stadium's complete simulated no-fly boundary. Recognition does not authorize overflight. Home is surveyed; other corridors and renewal orbits are verified online. Restrictive settings may cause continued loitering. Viewer movement does not affect sensing.</p>
               <p>Gatekeeper safety checks proposed flights; turning it off runs the direct nominal controller. Both modes stop with a red FAIL on an actual constraint violation. Feature overlap is required when no landmark supplies localization. Future image matches are predicted from mapped corners, so gatekeeper mode does not guarantee tracking for every setting.</p>
             </details>
             <details class="assumptions">

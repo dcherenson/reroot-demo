@@ -7,19 +7,20 @@ test('local demo loads, controls restart, viewer toggles leave mission untouched
  await page.locator('#play-button').click();
  await page.waitForTimeout(300);
  const before=await page.evaluate(()=>window.__budgetDemo.getState());
- await page.locator('#mapped-view-button').click();
- await expect(page.locator('#knowledge-toggle')).toBeChecked();
+ await expect(page.locator('#knowledge-toggle')).toHaveCount(0);
  await expect(page.locator('#mapped-view-button')).toHaveAttribute('aria-pressed','true');
+ expect(await page.evaluate(()=>window.__budgetDemo.getDiagnostics().knowledgeView)).toBe(true);
  await page.locator('#truth-view-button').click();
- await expect(page.locator('#knowledge-toggle')).not.toBeChecked();
- await page.locator('#knowledge-toggle').check();await page.locator('#top-button').click();
+ await expect(page.locator('#truth-view-button')).toHaveAttribute('aria-pressed','true');
+ expect(await page.evaluate(()=>window.__budgetDemo.getDiagnostics().knowledgeView)).toBe(false);
+ await page.locator('#mapped-view-button').click();await page.locator('#top-button').click();
  await page.mouse.move(350,550);await page.mouse.down();await page.mouse.move(440,600,{steps:10});await page.mouse.up();
  const after=await page.evaluate(()=>window.__budgetDemo.getState());
  expect(after.pose).toEqual(before.pose);expect(after.budget).toBe(before.budget);
  expect(await page.evaluate(()=>window.__budgetDemo.getDiagnostics().knowledgeView)).toBe(true);
  for(const id of ['tucson','ann-arbor','farm']){
   await page.selectOption('#world-select',id);await page.waitForFunction(()=>window.__budgetDemo?.getState()!==null);
-  const diagnostics=await page.evaluate(()=>window.__budgetDemo.getDiagnostics());expect(diagnostics.world).toBe(id);
+  const diagnostics=await page.evaluate(()=>window.__budgetDemo.getDiagnostics());expect(diagnostics.world).toBe(id);expect(diagnostics.knowledgeView).toBe(true);
   expect((await page.evaluate(()=>window.__budgetDemo.getState())).fault).toBeNull();
  }
  await page.locator('#budget-number').fill('2.5');await page.locator('#budget-number').press('Enter');

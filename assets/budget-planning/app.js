@@ -10,7 +10,7 @@ const controls=[['budget','budget'],['features','minFeatures'],['speed','speed']
 const CONTROL_UNITS={budget:' m',speed:' m/s',radius:' m',fov:'°',range:' m',pitch:'°'};
 const seed=1337;
 const sensorContext=$('sensor-canvas').getContext('2d');
-let sensorImage=null,viewMode='orbit';
+let sensorImage=null,viewMode='orbit',mappedView=$('mapped-view-button').getAttribute('aria-pressed')==='true';
 function structuredCloneSafe(value) {
   if(value===undefined||value===null)return {};
   try {return typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value));} catch(_error) {return {...value};}
@@ -138,7 +138,7 @@ function startMission(resumePlaying) {
   worker?.terminate();worker=null;runId++;const activeRunId=runId;lastSnapshot=null;pageSuspended=false;$('play-button').disabled=false;$('play-button').removeAttribute('aria-disabled');clearFailureAlert();clearInitializationError();sensorImage=null;sensorContext.clearRect(0,0,320,240);
   $('loading-overlay').hidden=false;$('loading-overlay').textContent='Building the world and surveying home…';
   const activeLayout=structuredCloneSafe(worldLayouts.get(worldId)||{});
-  const world=createWorld(worldId,seed,activeLayout);renderer.setWorld(world);renderer.setEditTargets(getLayoutTargets(world));renderer.setSensorConfig(config);renderer.setKnowledgeView($('knowledge-toggle').checked);renderer.setViewMode(viewMode);
+  const world=createWorld(worldId,seed,activeLayout);renderer.setWorld(world);renderer.setEditTargets(getLayoutTargets(world));renderer.setSensorConfig(config);setMapView(mappedView);renderer.setViewMode(viewMode);
   playing=Boolean(resumePlaying);inspect();updateControls();updateModeIndicator(config.gatekeeper);setPlaying(playing);if($('scene-world-label'))$('scene-world-label').textContent=world.label;$('status-text').textContent='Initializing online planning';
   syncEditorTargets();
   const activeWorker=worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
@@ -275,7 +275,7 @@ function finishWorldEditor(committed=false) {
 }
 function enterWorldEditor() {
   if(editing||!renderer)return;
-  editing=true;editingResumePlaying=playing;editingPriorView=viewMode;editingPriorKnowledge=$('knowledge-toggle').checked;
+  editing=true;editingResumePlaying=playing;editingPriorView=viewMode;editingPriorKnowledge=mappedView;
   const existingPanel=$('world-editor')?.closest('.panel-body');
   editingPriorPanelScroll=existingPanel?.scrollTop||0;
   setPlaying(false);
@@ -353,14 +353,13 @@ if($('world-edit-apply'))$('world-edit-apply').addEventListener('click',()=>{
 });
 for(const id of ['world-edit-x','world-edit-y'])if($(id))$(id).addEventListener('keydown',event=>{if(event.key==='Enter')$('world-edit-apply')?.click();});
 function setMapView(mapped) {
-  if(editing)mapped=false;
-  $('knowledge-toggle').checked=mapped;
+  mapped=Boolean(mapped)&&!editing;
+  mappedView=mapped;
   $('truth-view-button').setAttribute('aria-pressed',String(!mapped));
   $('mapped-view-button').setAttribute('aria-pressed',String(mapped));
   $('view-mode-description').textContent=mapped?'Robot map · fog hides unobserved scenery':'World truth · outlined dots are mapped features';
   renderer.setKnowledgeView(mapped);
 }
-$('knowledge-toggle').addEventListener('change',e=>setMapView(e.target.checked));
 $('truth-view-button').addEventListener('click',()=>setMapView(false));
 $('mapped-view-button').addEventListener('click',()=>setMapView(true));
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(!pageSuspended)visiblePlaying=playing;setPlaying(false);}else if(!pageSuspended&&!editing&&visiblePlaying)setPlaying(true);});
